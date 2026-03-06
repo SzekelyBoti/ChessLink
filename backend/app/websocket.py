@@ -8,9 +8,9 @@ from .game_manager import GameManager
 
 logger = logging.getLogger(__name__)
 
-PING_INTERVAL = int(os.getenv("WS_PING_INTERVAL", "30"))  # seconds
-CONNECTION_TIMEOUT = int(os.getenv("WS_CONNECTION_TIMEOUT", "60"))  # seconds
-MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", "1024"))  # 1KB
+PING_INTERVAL = int(os.getenv("WS_PING_INTERVAL", "30"))
+CONNECTION_TIMEOUT = int(os.getenv("WS_CONNECTION_TIMEOUT", "60")) 
+MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", "1024")) 
 
 class ConnectionManager:
     """Manages WebSocket connections for all games."""
@@ -254,6 +254,12 @@ async def process_message(message: dict, game_id: str, player_id: str, game) -> 
 
     elif msg_type == "draw_response":
         await handle_draw_response(message, game_id, player_id)
+
+    elif msg_type == "reset":
+        logger.info(f"Player {player_id} reset the board in game {game_id}")
+        await manager.broadcast(game_id, {
+            "type": "reset"
+        }, exclude_player=player_id)
 
     else:
         logger.warning(f"Unknown message type from {player_id}: {msg_type}")

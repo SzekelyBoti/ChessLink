@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import API from "../api/config";
+import API from "../../api/config";
+import "./JoinGame.css";
 
 function JoinGame() {
     const { gameId } = useParams();
@@ -26,6 +27,7 @@ function JoinGame() {
                 alert(res.data.error);
                 return;
             }
+
             sessionStorage.setItem("playerId", name.trim());
             sessionStorage.setItem("gameId", gameId);
 
@@ -46,48 +48,37 @@ function JoinGame() {
     }
 
     return (
-        <div style={{
-            padding: "40px 20px",
-            maxWidth: "500px",
-            margin: "0 auto",
-            textAlign: "center"
-        }}>
-            <h2>Join Game</h2>
-            <p style={{ marginBottom: "20px", color: "#666" }}>
+        <div className="join-game-container">
+            <h2 className="join-game-title">Join Game</h2>
+
+            <p className="game-id-display">
                 Game ID: <strong>{gameId}</strong>
             </p>
 
-            <input
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={loading}
-                style={{
-                    padding: "10px",
-                    width: "250px",
-                    fontSize: "1rem",
-                    borderRadius: "4px",
-                    border: "1px solid #ccc",
-                    marginRight: "10px"
-                }}
-            />
+            <div className="join-form">
+                <input
+                    className="name-input"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                />
 
-            <button
-                onClick={joinGame}
-                disabled={loading || !name.trim()}
-                style={{
-                    padding: "10px 20px",
-                    fontSize: "1rem",
-                    backgroundColor: "#2196F3",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.7 : 1
-                }}
-            >
-                {loading ? "Joining..." : "Join Game"}
-            </button>
+                <button
+                    className={`join-button ${loading ? 'loading' : ''}`}
+                    onClick={joinGame}
+                    disabled={loading || !name.trim()}
+                >
+                    {loading ? "Joining..." : "Join Game"}
+                </button>
+            </div>
+
+            {loading && (
+                <div className="loading-spinner">
+                    <div className="spinner"></div>
+                </div>
+            )}
         </div>
     );
 }

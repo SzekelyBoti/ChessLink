@@ -1,0 +1,225 @@
+﻿.game-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.game-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+    width: 100%;
+    max-width: 500px;
+}
+.control-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    max-width: 150px;
+}
+.draw-btn {
+    background-color: #FF9800;
+    color: white;
+}
+.draw-btn:hover:not(:disabled) {
+    background-color: #F57C00;
+    transform: translateY(-2px);
+}
+.draw-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+.resign-btn {
+    background-color: #f44336;
+    color: white;
+}
+.resign-btn:hover:not(:disabled) {
+    background-color: #d32f2f;
+    transform: translateY(-2px);
+}
+
+.resign-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.draw-prompt {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #fff3e0;
+    border-radius: 8px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.draw-prompt p {
+    margin-bottom: 10px;
+    color: #333;
+    font-weight: 500;
+}
+
+.draw-response-btn {
+    padding: 8px 16px;
+    margin: 0 5px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.draw-response-btn.accept {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.draw-response-btn.accept:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+}
+
+.draw-response-btn.decline {
+    background-color: #f44336;
+    color: white;
+}
+
+.draw-response-btn.decline:hover {
+    background-color: #d32f2f;
+    transform: translateY(-2px);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.game-title {
+    margin: 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.connection-status {
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: white;
+    font-size: 14px;
+}
+
+.connection-status.connected {
+    background-color: #4CAF50;
+}
+
+.connection-status.disconnected {
+    background-color: #f44336;
+}
+
+.game-info {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 500px;
+    box-sizing: border-box;
+}
+
+.game-info p {
+    margin: 5px 0;
+    color: #333;
+}
+
+.game-info strong {
+    font-weight: 600;
+    color: #555;
+}
+
+.chessboard-wrapper {
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 1/1;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.reset-section {
+    margin-top: 20px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+}
+
+.reset-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.reset-btn:hover {
+    background-color: #1976D2;
+}
+
+.reset-btn:active {
+    transform: translateY(1px);
+}
+.game-over-message {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #ffeb3b;
+    border-radius: 4px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+}
+
+.game-over-message p {
+    margin: 0;
+    color: #333;
+    font-weight: 500;
+}
+@media (max-width: 600px) {
+    .game-container {
+        padding: 10px;
+    }
+
+    .game-header,
+    .game-info,
+    .chessboard-wrapper,
+    .reset-section {
+        max-width: 100%;
+    }
+}

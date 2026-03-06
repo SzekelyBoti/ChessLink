@@ -1,0 +1,182 @@
+﻿.join-game-container {
+    padding: 40px 20px;
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    animation: slideIn 0.5s ease-out;
+}
+
+.join-game-title {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.game-id-display {
+    margin-bottom: 30px;
+    color: #666;
+    font-size: 1.1rem;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #2196F3;
+}
+
+.game-id-display strong {
+    color: #2196F3;
+    font-family: monospace;
+    font-size: 1.2rem;
+    background-color: #e3f2fd;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+}
+
+.join-form {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.name-input {
+    padding: 12px;
+    width: 250px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 2px solid #e0e0e0;
+    transition: all 0.3s ease;
+    background-color: white;
+}
+
+.name-input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.name-input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.name-input::placeholder {
+    color: #999;
+}
+
+.join-button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.join-button:hover:not(:disabled) {
+    background-color: #1976D2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+}
+
+.join-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.join-button:disabled {
+    background-color: #b0bec5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.join-button.loading {
+    position: relative;
+    color: transparent;
+}
+
+.loading-spinner {
+    margin-top: 20px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .join-game-title {
+        font-size: 1.75rem;
+    }
+
+    .game-id-display {
+        font-size: 1rem;
+    }
+
+    .join-form {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .name-input {
+        width: 100%;
+        max-width: 280px;
+    }
+
+    .join-button {
+        width: 100%;
+        max-width: 280px;
+    }
+}
+
+.name-input.error {
+    border-color: #f44336;
+}
+
+.name-input.error:focus {
+    box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+}
+
+.join-success {
+    color: #4CAF50;
+    margin-top: 20px;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
