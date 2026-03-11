@@ -1,16 +1,21 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api/config";
 import "./Home.css";
 
 function Home() {
-    const [gameId, setGameId] = useState("");
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
     const [createdGame, setCreatedGame] = useState(null);
-    const [showJoinForm, setShowJoinForm] = useState(false);
     const navigate = useNavigate();
-    
+
+    useEffect(() => {
+        const savedName = sessionStorage.getItem("playerName");
+        if (savedName) {
+            setName(savedName);
+        }
+    }, []);
+
     async function createGame() {
         setLoading(true);
         try {
@@ -23,13 +28,13 @@ function Home() {
             setLoading(false);
         }
     }
-    
+
     function copyLink() {
         const link = `${window.location.origin}/join/${createdGame}`;
         navigator.clipboard.writeText(link);
         alert("Invite link copied!");
     }
-    
+
     async function joinAsCreator() {
         if (!name.trim()) {
             alert("Enter your name to join");
@@ -38,58 +43,34 @@ function Home() {
 
         setLoading(true);
         try {
+            const deviceId = 'player_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
+            sessionStorage.setItem("playerId", deviceId);
+            sessionStorage.setItem("playerName", name.trim());
+
             const res = await API.post("/join-game", {
                 game_id: createdGame,
                 player_name: name.trim()
             });
 
             if (res.data.error) {
+                sessionStorage.removeItem("playerId");
+                sessionStorage.removeItem("playerName");
                 alert(res.data.error);
                 return;
             }
 
-            sessionStorage.setItem("playerId", name.trim());
             navigate(`/game/${createdGame}`);
         } catch (err) {
             console.error(err);
+            sessionStorage.removeItem("playerId");
+            sessionStorage.removeItem("playerName");
             alert("Failed to join game");
         } finally {
             setLoading(false);
         }
     }
     
-    async function joinExistingGame() {
-        if (!gameId.trim()) {
-            alert("Please enter a Game ID");
-            return;
-        }
-
-        if (!name.trim()) {
-            alert("Please enter your name");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const res = await API.post("/join-game", {
-                game_id: gameId.trim(),
-                player_name: name.trim()
-            });
-
-            if (res.data.error) {
-                alert(res.data.error);
-                return;
-            }
-
-            sessionStorage.setItem("playerId", name.trim());
-            navigate(`/game/${gameId.trim()}`);
-        } catch (err) {
-            console.error(err);
-            alert("Failed to join game");
-        } finally {
-            setLoading(false);
-        }
-    }
 
     return (
         <div className="home-container">
@@ -105,43 +86,14 @@ function Home() {
                         {loading ? "Creating..." : "Create New Game"}
                     </button>
 
-                    <div className="divider">or</div>
-
                     <button
-                        className="show-join-btn"
-                        onClick={() => setShowJoinForm(!showJoinForm)}
+                        className="matches-btn"
+                        onClick={() => navigate("/matches")}
                     >
-                        Join Existing Game
+                        View Recent Matches
                     </button>
 
-                    {showJoinForm && (
-                        <div className="join-existing-section">
-                            <h3>Join Existing Game</h3>
-                            <input
-                                type="text"
-                                className="game-id-input"
-                                placeholder="Enter Game ID"
-                                value={gameId}
-                                onChange={(e) => setGameId(e.target.value)}
-                                disabled={loading}
-                            />
-                            <input
-                                type="text"
-                                className="name-input"
-                                placeholder="Your name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                disabled={loading}
-                            />
-                            <button
-                                className="join-btn"
-                                onClick={joinExistingGame}
-                                disabled={loading || !gameId.trim() || !name.trim()}
-                            >
-                                {loading ? "Joining..." : "Join Game"}
-                            </button>
-                        </div>
-                    )}
+                    {loading && <div className="spinner" />}
                 </div>
             ) : (
                 <div className="game-created-section">
@@ -166,6 +118,7 @@ function Home() {
                     <button
                         className="copy-btn"
                         onClick={copyLink}
+                        disabled={loading}
                     >
                         📋 Copy Invite Link
                     </button>
@@ -195,9 +148,12 @@ function Home() {
                             setCreatedGame(null);
                             setName("");
                         }}
+                        disabled={loading}
                     >
                         ← Create Different Game
                     </button>
+
+                    {loading && <div className="spinner" />}
                 </div>
             )}
         </div>

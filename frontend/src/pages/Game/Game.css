@@ -5,7 +5,62 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
 }
+
+.game-title {
+    margin: 0;
+    font-size: clamp(1.2rem, 5vw, 1.5rem);
+    color: #333;
+}
+
+.connection-status {
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: white;
+    font-size: clamp(0.7rem, 3vw, 0.9rem);
+}
+
+.connection-status.connected {
+    background-color: #4CAF50;
+}
+
+.connection-status.disconnected {
+    background-color: #f44336;
+}
+
+.game-info {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 500px;
+    box-sizing: border-box;
+    font-size: clamp(0.8rem, 4vw, 1rem);
+}
+
+.chessboard-wrapper {
+    width: 100%;
+    max-width: min(500px, 95vw);
+    aspect-ratio: 1/1;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.chessboard-wrapper > div {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.chessboard-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 .game-controls {
     display: flex;
     gap: 10px;
@@ -13,39 +68,76 @@
     margin-top: 15px;
     width: 100%;
     max-width: 500px;
+    flex-wrap: wrap;
 }
+
 .control-btn {
-    padding: 10px 20px;
-    font-size: 14px;
+    padding: clamp(8px, 3vw, 12px) clamp(12px, 4vw, 20px);
+    font-size: clamp(0.8rem, 3.5vw, 1rem);
     border: none;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
-    flex: 1;
-    max-width: 150px;
+    flex: 1 1 auto;
+    min-width: 120px;
 }
+
 .draw-btn {
     background-color: #FF9800;
     color: white;
 }
+
 .draw-btn:hover:not(:disabled) {
     background-color: #F57C00;
     transform: translateY(-2px);
 }
+
 .draw-btn:disabled {
     background-color: #ccc;
     cursor: not-allowed;
 }
+
 .resign-btn {
     background-color: #f44336;
     color: white;
 }
+
 .resign-btn:hover:not(:disabled) {
     background-color: #d32f2f;
     transform: translateY(-2px);
 }
 
 .resign-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.reset-section {
+    margin-top: 20px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+}
+
+.reset-btn {
+    padding: clamp(8px, 3vw, 12px) clamp(16px, 5vw, 24px);
+    font-size: clamp(0.9rem, 4vw, 1.1rem);
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    max-width: 200px;
+}
+
+.reset-btn:hover:not(:disabled) {
+    background-color: #1976D2;
+    transform: translateY(-2px);
+}
+
+.reset-btn:disabled {
     background-color: #ccc;
     cursor: not-allowed;
 }
@@ -58,22 +150,21 @@
     text-align: center;
     width: 100%;
     max-width: 500px;
-    animation: slideDown 0.3s ease-out;
+    box-sizing: border-box;
 }
 
 .draw-prompt p {
     margin-bottom: 10px;
-    color: #333;
-    font-weight: 500;
+    font-size: clamp(0.9rem, 4vw, 1.1rem);
 }
 
 .draw-response-btn {
-    padding: 8px 16px;
+    padding: clamp(6px, 2.5vw, 8px) clamp(12px, 4vw, 16px);
     margin: 0 5px;
+    font-size: clamp(0.8rem, 3.5vw, 1rem);
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
     transition: all 0.2s;
 }
 
@@ -97,10 +188,83 @@
     transform: translateY(-2px);
 }
 
-@keyframes slideDown {
+.game-over-container {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 500px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.game-over-message {
+    padding: 15px;
+    background-color: #ffeb3b;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: clamp(1rem, 4vw, 1.2rem);
+    font-weight: bold;
+    color: #333;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.game-over-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.home-btn {
+    padding: clamp(8px, 3vw, 12px) clamp(16px, 5vw, 24px);
+    font-size: clamp(0.9rem, 4vw, 1.1rem);
+    background-color: #9C27B0;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.home-btn:hover {
+    background-color: #7B1FA2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3);
+}
+
+.home-btn:active {
+    transform: translateY(0);
+}
+
+.home-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.game-over-buttons .reset-btn {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+    margin-top: 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2rem;
+    color: #666;
+}
+
+@keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(-20px);
+        transform: translateY(20px);
     }
     to {
         opacity: 1;
@@ -108,118 +272,59 @@
     }
 }
 
-.game-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: #f5f5f5;
-    border-radius: 5px;
-    width: 100%;
-    max-width: 500px;
-}
-
-.game-title {
-    margin: 0;
-    font-size: 24px;
-    color: #333;
-}
-
-.connection-status {
-    padding: 5px 10px;
-    border-radius: 5px;
-    color: white;
-    font-size: 14px;
-}
-
-.connection-status.connected {
-    background-color: #4CAF50;
-}
-
-.connection-status.disconnected {
-    background-color: #f44336;
-}
-
-.game-info {
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: #f0f0f0;
-    border-radius: 5px;
-    width: 100%;
-    max-width: 500px;
-    box-sizing: border-box;
-}
-
-.game-info p {
-    margin: 5px 0;
-    color: #333;
-}
-
-.game-info strong {
-    font-weight: 600;
-    color: #555;
-}
-
-.chessboard-wrapper {
-    width: 100%;
-    max-width: 500px;
-    aspect-ratio: 1/1;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    overflow: hidden;
-    margin: 0 auto;
-}
-
-.reset-section {
-    margin-top: 20px;
-    text-align: center;
-    width: 100%;
-    max-width: 500px;
-}
-
-.reset-btn {
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #2196F3;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.reset-btn:hover {
-    background-color: #1976D2;
-}
-
-.reset-btn:active {
-    transform: translateY(1px);
-}
-.game-over-message {
-    margin-top: 15px;
-    padding: 10px;
-    background-color: #ffeb3b;
-    border-radius: 4px;
-    text-align: center;
-    width: 100%;
-    max-width: 500px;
-}
-
-.game-over-message p {
-    margin: 0;
-    color: #333;
-    font-weight: 500;
-}
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .game-container {
         padding: 10px;
     }
 
-    .game-header,
-    .game-info,
-    .chessboard-wrapper,
-    .reset-section {
-        max-width: 100%;
+    .game-info {
+        padding: 8px;
+    }
+
+    .game-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .control-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+
+    .game-over-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .home-btn,
+    .game-over-buttons .reset-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+
+    .draw-prompt {
+        padding: 10px;
+    }
+
+    .draw-response-btn {
+        padding: 8px 12px;
+        margin: 5px;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .control-btn,
+    .reset-btn,
+    .home-btn,
+    .draw-response-btn {
+        min-height: 44px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .control-btn:active,
+    .reset-btn:active,
+    .home-btn:active {
+        opacity: 0.7;
+        transform: scale(0.98);
     }
 }
