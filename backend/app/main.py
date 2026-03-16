@@ -39,9 +39,9 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     """Connect to database on startup."""
-    database.connect()
+    await database.connect()
     logger.info(f"Database connected. DB object: {database.db}")
 
 @app.get("/")
@@ -129,7 +129,7 @@ async def save_match(request: GameResultRequest):
         if request.moves_list:
             match_data["moves_list"] = request.moves_list
 
-        database.save_game(match_data)
+        await database.save_game(match_data)
 
         return {"status": "success", "message": "Match saved successfully"}
 
@@ -140,13 +140,13 @@ async def save_match(request: GameResultRequest):
 @app.get("/matches/recent")
 async def get_recent_matches(limit: int = 20):
     """Get recent matches across all players."""
-    matches = database.get_recent_matches(limit)
+    matches = await database.get_recent_matches(limit)
     return {"matches": matches}
 
 @app.get("/player/{player_name}/matches")
 async def get_player_matches(player_name: str, limit: int = 10):
     """Get matches for a specific player by name."""
-    matches = database.get_player_matches(player_name, limit)
+    matches = await database.get_player_matches(player_name, limit)
     return {"matches": matches}
 
 @app.get("/health")
