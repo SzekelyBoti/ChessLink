@@ -3,7 +3,7 @@ import json
 import logging
 import asyncio
 import chess
-from typing import Dict, Optional, Set, Union
+from typing import Dict, Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from .game_manager import GameManager
 
@@ -13,6 +13,7 @@ PING_INTERVAL = int(os.getenv("WS_PING_INTERVAL", "30"))
 CONNECTION_TIMEOUT = int(os.getenv("WS_CONNECTION_TIMEOUT", "60"))
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", "1024"))
 
+
 class ConnectionManager:
     """Manages WebSocket connections for all games."""
 
@@ -20,38 +21,49 @@ class ConnectionManager:
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
         self.player_connection_count: Dict[str, Dict[str, int]] = {}
         self.player_tasks: Dict[str, Dict[str, asyncio.Task]] = {}
+        self._lock = asyncio.Lock()
 
     async def connect(self, game_id: str, websocket: WebSocket, player_id: str) -> None:
         """Connect a player to a game."""
-        if game_id not in self.active_connections:
-            self.active_connections[game_id] = {}
-            self.player_connection_count[game_id] = {}
-            self.player_tasks[game_id] = {}
+        async with self._lock:
+            if game_id not in self.active_connections:
+                self.active_connections[game_id] = {}
+                self.player_connection_count[game_id] = {}
+                self.player_tasks[game_id] = {}
 
-        if player_id in self.active_connections[game_id]:
-            logger.info(f"Player {player_id} already connected to game {game_id}, closing old connection")
-            try:
-                old_ws = self.active_connections[game_id][player_id]
-                if player_id in self.player_tasks[game_id]:
-                    self.player_tasks[game_id][player_id].cancel()
-                await old_ws.close(code=1000, reason="New connection replacing old")
-            except Exception as e:
-                logger.error(f"Error closing old connection: {e}")
+            if player_id in self.active_connections[game_id]:
+                logger.info(f"Player {player_id} already connected to game {game_id}, closing old connection")
+                try:
+                    old_ws = self.active_connections[game_id][player_id]
+                    if player_id in self.player_tasks[game_id]:
+                        self.player_tasks[game_id][player_id].cancel()
+                        del self.player_tasks[game_id][player_id]
+                    await old_ws.close(code=1000, reason="New connection replacing old")
+                except Exception as e:
+                    logger.error(f"Error closing old connection: {e}")
 
-        self.active_connections[game_id][player_id] = websocket
-        self.player_connection_count[game_id][player_id] = self.player_connection_count[game_id].get(player_id, 0) + 1
+            self.active_connections[game_id][player_id] = websocket
+            self.player_connection_count[game_id][player_id] = (
+                    self.player_connection_count[game_id].get(player_id, 0) + 1
+            )
 
-        self.player_tasks[game_id][player_id] = asyncio.create_task(
-            self._heartbeat(game_id, player_id, websocket)
-        )
+            self.player_tasks[game_id][player_id] = asyncio.create_task(
+                self._heartbeat(game_id, player_id, websocket)
+            )
 
-        logger.info(f"Player {player_id} connected to game {game_id} (connection #{self.player_connection_count[game_id][player_id]})")
+            logger.info(
+                f"Player {player_id} connected to game {game_id} "
+                f"(connection #{self.player_connection_count[game_id][player_id]})"
+            )
 
         await self._notify_players_joined(game_id, player_id)
 
     async def disconnect(self, game_id: str, player_id: str) -> None:
         """Disconnect a player from a game."""
-        if game_id in self.active_connections:
+        async with self._lock:
+            if game_id not in self.active_connections:
+                return
+
             if game_id in self.player_tasks and player_id in self.player_tasks[game_id]:
                 self.player_tasks[game_id][player_id].cancel()
                 del self.player_tasks[game_id][player_id]
@@ -62,10 +74,8 @@ class ConnectionManager:
 
             if not self.active_connections[game_id]:
                 del self.active_connections[game_id]
-                if game_id in self.player_connection_count:
-                    del self.player_connection_count[game_id]
-                if game_id in self.player_tasks:
-                    del self.player_tasks[game_id]
+                self.player_connection_count.pop(game_id, None)
+                self.player_tasks.pop(game_id, None)
 
     async def broadcast(self, game_id: str, message: dict, exclude_player: Optional[str] = None) -> None:
         """Broadcast a message to all players in a game."""
@@ -73,10 +83,9 @@ class ConnectionManager:
             return
 
         disconnected = []
-        for player_id, websocket in self.active_connections[game_id].items():
+        for player_id, websocket in list(self.active_connections[game_id].items()):
             if exclude_player and player_id == exclude_player:
                 continue
-
             try:
                 await websocket.send_text(json.dumps(message))
                 logger.debug(f"Broadcast to {player_id} in game {game_id}: {message['type']}")
@@ -100,21 +109,17 @@ class ConnectionManager:
         return False
 
     async def _heartbeat(self, game_id: str, player_id: str, websocket: WebSocket) -> None:
-        """Send periodic heartbeats to keep connection alive."""
+        """Send periodic heartbeats to keep connection alive.
+        Does NOT call disconnect() — the endpoint's finally block owns cleanup.
+        """
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
-                try:
-                    await websocket.send_text(json.dumps({"type": "ping"}))
-                except Exception as e:
-                    logger.info(f"Heartbeat failed for {player_id} in game {game_id}: {e}")
-                    break
+                await websocket.send_text(json.dumps({"type": "ping"}))
         except asyncio.CancelledError:
             logger.debug(f"Heartbeat cancelled for {player_id} in game {game_id}")
         except Exception as e:
-            logger.error(f"Heartbeat error for {player_id} in game {game_id}: {e}")
-        finally:
-            await self.disconnect(game_id, player_id)
+            logger.info(f"Heartbeat failed for {player_id} in game {game_id}: {e}")
 
     async def _notify_players_joined(self, game_id: str, new_player_id: str) -> None:
         """Notify other players that a new player joined."""
@@ -122,7 +127,6 @@ class ConnectionManager:
             pid for pid in self.active_connections.get(game_id, {}).keys()
             if pid != new_player_id
         ]
-
         for other in other_players:
             await self.send_to_player(game_id, other, {
                 "type": "player_joined",
@@ -134,10 +138,17 @@ class ConnectionManager:
         """Get set of connected players in a game."""
         return set(self.active_connections.get(game_id, {}).keys())
 
+
 manager = ConnectionManager()
 game_manager = GameManager()
 
-async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str, player_name: Optional[str] = None) -> None:
+
+async def websocket_endpoint(
+        websocket: WebSocket,
+        game_id: str,
+        player_id: str,
+        player_name: Optional[str] = None
+) -> None:
     """Main WebSocket endpoint handler."""
     await websocket.accept()
 
@@ -157,48 +168,35 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str,
             logger.warning(f"Connection rejected: Game {game_id} not found")
             return
 
-        player_ids = []
-        for p in game.players:
-            if isinstance(p, dict):
-                player_ids.append(p.get("id", ""))
-            else:
-                player_ids.append(p)
+        player_ids = [
+            p.get("id", "") if isinstance(p, dict) else p
+            for p in game.players
+        ]
 
         if player_id not in player_ids:
             if len(game.players) >= 2:
-                existing_player = None
-                for p in game.players:
-                    if isinstance(p, dict) and p.get("name") == player_name:
-                        existing_player = p
-                        break
+                existing_player = next(
+                    (p for p in game.players if isinstance(p, dict) and p.get("name") == player_name),
+                    None
+                )
 
                 if existing_player:
-                    logger.info(f"Player {player_name} reconnecting, updating ID from {existing_player['id']} to {player_id}")
+                    logger.info(
+                        f"Player {player_name} reconnecting, "
+                        f"updating ID from {existing_player['id']} to {player_id}"
+                    )
                     for i, p in enumerate(game.players):
                         if isinstance(p, dict) and p.get("name") == player_name:
                             game.players[i]["id"] = player_id
                             break
                 else:
-                    connected_players = manager.get_connected_players(game_id)
-
-                    player_found = False
-                    for p in game.players:
-                        if isinstance(p, dict) and p.get("name") == player_name:
-                            if p.get("id") in connected_players:
-                                player_found = True
-                                break
-
-                    if player_found:
-                        logger.info(f"Player {player_name} already has active connection, allowing reconnect")
-                        pass
-                    else:
-                        await websocket.send_text(json.dumps({
-                            "type": "error",
-                            "message": "Game is full"
-                        }))
-                        await websocket.close(code=1008)
-                        logger.warning(f"Connection rejected: Game {game_id} is full")
-                        return
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Game is full"
+                    }))
+                    await websocket.close(code=1008)
+                    logger.warning(f"Connection rejected: Game {game_id} is full")
+                    return
             else:
                 added = game_manager.add_player(game_id, player_id, player_name)
                 if not added:
@@ -212,16 +210,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str,
 
         await manager.connect(game_id, websocket, player_id)
 
-        player_names = []
-        for p in game.players:
-            if isinstance(p, dict):
-                player_names.append(p.get("name", ""))
-            else:
-                player_names.append(p)
-
-        your_color = 'w'
-        if len(player_names) > 0 and player_names[0] != player_name:
-            your_color = 'b'
+        your_color = game_manager.get_player_color(game_id, player_id) or 'w'
+        player_names = game_manager.get_player_names(game_id)
 
         logger.info(f"Player {player_name} assigned color: {your_color}")
 
@@ -247,6 +237,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str,
                         websocket.receive_text(),
                         timeout=CONNECTION_TIMEOUT
                     )
+
                     if len(data) > MAX_MESSAGE_SIZE:
                         logger.warning(f"Message too large from {player_id}: {len(data)} bytes")
                         continue
@@ -259,7 +250,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str,
                 except asyncio.TimeoutError:
                     try:
                         await websocket.send_text(json.dumps({"type": "ping"}))
-                    except:
+                    except Exception:
                         break
                 except WebSocketDisconnect:
                     logger.info(f"WebSocket disconnected for player {player_id}")
@@ -291,50 +282,51 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str,
         except Exception as e:
             logger.error(f"Error notifying players of disconnect: {e}")
 
+
 async def process_message(message: dict, game_id: str, player_id: str, game) -> None:
     """Process different types of WebSocket messages."""
     msg_type = message.get("type")
 
     if msg_type == "move":
         await handle_move(message, game_id, player_id, game)
-
     elif msg_type == "ping":
         await manager.send_to_player(game_id, player_id, {"type": "pong"})
-
     elif msg_type == "resign":
         await handle_resign(game_id, player_id)
-
     elif msg_type == "draw_offer":
         await handle_draw_offer(game_id, player_id, game)
-
     elif msg_type == "draw_response":
         await handle_draw_response(message, game_id, player_id)
-
     elif msg_type == "reset":
         logger.info(f"Player {player_id} reset the board in game {game_id}")
-        await manager.broadcast(game_id, {
-            "type": "reset"
-        }, exclude_player=player_id)
-
+        await manager.broadcast(game_id, {"type": "reset"}, exclude_player=player_id)
     else:
         logger.warning(f"Unknown message type from {player_id}: {msg_type}")
 
+
 async def handle_move(message: dict, game_id: str, player_id: str, game) -> None:
     """Handle a move message."""
+    from_sq = message.get("from")
+    to_sq = message.get("to")
+    promotion = message.get("promotion", "")
+
+    if not from_sq or not to_sq:
+        logger.warning(f"Invalid move data from {player_id}: missing from/to")
+        return
+
+    uci_move = f"{from_sq}{to_sq}"
+    if promotion:
+        uci_move += promotion.lower()
+
     move_data = {
-        "from": message.get("from"),
-        "to": message.get("to"),
-        "promotion": message.get("promotion", "q"),
+        "from": from_sq,
+        "to": to_sq,
+        "promotion": promotion or "q",
         "player": player_id,
         "timestamp": message.get("timestamp", 0)
     }
 
-    if not move_data["from"] or not move_data["to"]:
-        logger.warning(f"Invalid move data from {player_id}: {move_data}")
-        return
-
-    logger.info(f"Processing move from {player_id}: {move_data['from']}->{move_data['to']}")
-    uci_move = f"{move_data['from']}{move_data['to']}"
+    logger.info(f"Processing move from {player_id}: {uci_move}")
     board = game.board
 
     try:
@@ -342,8 +334,8 @@ async def handle_move(message: dict, game_id: str, player_id: str, game) -> None
 
         if chess_move in board.legal_moves:
             board.push(chess_move)
-
             game_manager.add_move(game_id, move_data)
+
             await manager.broadcast(game_id, {
                 "type": "move",
                 "move": move_data
@@ -355,14 +347,11 @@ async def handle_move(message: dict, game_id: str, player_id: str, game) -> None
             })
 
             if board.is_game_over():
-                game_over_message = {
-                    "type": "game_over",
-                    "reason": None
-                }
+                game_over_message = {"type": "game_over", "reason": None}
 
                 if board.is_checkmate():
-                    game_over_message["reason"] = "checkmate"
                     winner = 'white' if board.turn == chess.BLACK else 'black'
+                    game_over_message["reason"] = "checkmate"
                     game_over_message["winner"] = winner
                     logger.info(f"Checkmate! Winner: {winner}")
 
@@ -378,7 +367,12 @@ async def handle_move(message: dict, game_id: str, player_id: str, game) -> None
                     game_over_message["reason"] = "repetition"
                     logger.info("Fivefold repetition")
 
+                elif board.is_seventyfive_moves():
+                    game_over_message["reason"] = "seventy_five_moves"
+                    logger.info("75-move rule")
+
                 await manager.broadcast(game_id, game_over_message)
+
         else:
             logger.warning(f"Illegal move attempted: {uci_move}")
             await manager.send_to_player(game_id, player_id, {
@@ -386,10 +380,11 @@ async def handle_move(message: dict, game_id: str, player_id: str, game) -> None
                 "message": "Illegal move"
             })
 
-    except ValueError as e:
+    except ValueError:
         logger.error(f"Invalid UCI move format: {uci_move}")
     except Exception as e:
         logger.error(f"Error processing move: {e}")
+
 
 async def handle_resign(game_id: str, player_id: str) -> None:
     """Handle a resign message."""
@@ -400,23 +395,20 @@ async def handle_resign(game_id: str, player_id: str) -> None:
         "player": player_id
     })
 
+
 async def handle_draw_offer(game_id: str, player_id: str, game) -> None:
     """Handle a draw offer message."""
-    other_player_ids = []
-    
-    for p in game.players:
-        if isinstance(p, dict):
-            if p.get("id") != player_id:
-                other_player_ids.append(p.get("id"))
-        else:
-            if p != player_id:
-                other_player_ids.append(p)
-
+    other_player_ids = [
+        p.get("id") if isinstance(p, dict) else p
+        for p in game.players
+        if (p.get("id") if isinstance(p, dict) else p) != player_id
+    ]
     for other_id in other_player_ids:
         await manager.send_to_player(game_id, other_id, {
             "type": "draw_offer",
             "from": player_id
         })
+
 
 async def handle_draw_response(message: dict, game_id: str, player_id: str) -> None:
     """Handle a draw response message."""

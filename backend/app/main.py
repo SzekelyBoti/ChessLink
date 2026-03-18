@@ -1,25 +1,40 @@
-﻿from datetime import datetime
+﻿import logging
+from datetime import datetime
 import os
-import logging
+
 from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
 from .websocket import websocket_endpoint, game_manager
 from .database import DatabaseService
 from .models import (
     JoinGameRequest, GameResponse, JoinGameResponse,
-    GameResultRequest, ErrorResponse,
+    GameResultRequest,
 )
 
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
 USE_MEMORY_DB = os.getenv("USE_MEMORY_DB", "true").lower() == "true"
-database = DatabaseService(memory_mode=USE_MEMORY_DB)
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000"
+).split(",")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# App & middleware
+# ---------------------------------------------------------------------------
 
 app = FastAPI(
     title="ChessLink API",
@@ -31,18 +46,37 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,   # was hardcoded to ["*"]
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     max_age=3600,
 )
 
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+
+database = DatabaseService(memory_mode=USE_MEMORY_DB)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Connect to database on startup."""
     await database.connect()
-    logger.info(f"Database connected. DB object: {database.db}")
+    logger.info(f"Database connected. Memory mode: {USE_MEMORY_DB}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanly close database connection on shutdown."""
+    await database.close()
+    logger.info("Database connection closed.")
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
 @app.get("/")
 async def root():
@@ -54,6 +88,7 @@ async def root():
         "version": "1.0.0"
     }
 
+
 @app.get("/create-game", response_model=GameResponse)
 async def create_game():
     """Create a new chess game."""
@@ -64,6 +99,7 @@ async def create_game():
     except Exception as e:
         logger.error(f"Error creating game: {e}")
         raise HTTPException(status_code=500, detail="Failed to create game")
+
 
 @app.post("/join-game", response_model=JoinGameResponse)
 async def join_game(request: JoinGameRequest):
@@ -89,6 +125,7 @@ async def join_game(request: JoinGameRequest):
         logger.error(f"Error joining game: {e}")
         raise HTTPException(status_code=500, detail="Failed to join game")
 
+
 @app.websocket("/ws/{game_id}")
 async def websocket_route(websocket: WebSocket, game_id: str):
     """WebSocket endpoint for real-time game communication."""
@@ -96,11 +133,11 @@ async def websocket_route(websocket: WebSocket, game_id: str):
     player_name = websocket.query_params.get("player_name")
 
     if not player_id:
-        logger.warning(f"WebSocket connection rejected: missing player_id for game {game_id}")
+        logger.warning(f"WebSocket rejected: missing player_id for game {game_id}")
         await websocket.close(code=1008, reason="player_id required")
         return
 
-    logger.info(f"WebSocket connection attempt - Player: {player_id} ({player_name}), Game: {game_id}")
+    logger.info(f"WebSocket attempt — player: {player_id} ({player_name}), game: {game_id}")
 
     try:
         await websocket_endpoint(websocket, game_id, player_id, player_name)
@@ -108,13 +145,15 @@ async def websocket_route(websocket: WebSocket, game_id: str):
         logger.error(f"WebSocket error for player {player_id} in game {game_id}: {e}")
         try:
             await websocket.close(code=1011, reason="Internal server error")
-        except:
+        except Exception:
             pass
+
+
 @app.post("/save-match")
 async def save_match(request: GameResultRequest):
     """Save a completed match to database."""
     try:
-        logger.info(f"Saving match: {request.gameId} - {request.whiteName} vs {request.blackName}")
+        logger.info(f"Saving match: {request.gameId} — {request.whiteName} vs {request.blackName}")
 
         match_data = {
             "gameId": request.gameId,
@@ -130,12 +169,12 @@ async def save_match(request: GameResultRequest):
             match_data["moves_list"] = request.moves_list
 
         await database.save_game(match_data)
-
         return {"status": "success", "message": "Match saved successfully"}
 
     except Exception as e:
         logger.error(f"Error saving match: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/matches/recent")
 async def get_recent_matches(limit: int = 20):
@@ -143,21 +182,25 @@ async def get_recent_matches(limit: int = 20):
     matches = await database.get_recent_matches(limit)
     return {"matches": matches}
 
+
 @app.get("/player/{player_name}/matches")
 async def get_player_matches(player_name: str, limit: int = 10):
     """Get matches for a specific player by name."""
     matches = await database.get_player_matches(player_name, limit)
     return {"matches": matches}
 
+
 @app.get("/health")
 async def health_check():
-    """Kubernetes health check endpoint."""
+    """Kubernetes liveness check."""
     return {"status": "healthy"}
+
 
 @app.get("/ready")
 async def readiness_check():
-    """Kubernetes readiness check endpoint."""
+    """Kubernetes readiness check."""
     return {"status": "ready"}
+
 
 @app.get("/metrics")
 async def metrics():

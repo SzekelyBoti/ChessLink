@@ -1,22 +1,22 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api/config";
 import "./Matches.css";
 
 function Matches() {
-    const [matches, setMatches] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [filter, setFilter] = useState("all");
-    const [playerName, setPlayerName] = useState("");
+    const [matches,         setMatches]         = useState([]);
+    const [loading,         setLoading]         = useState(true);
+    const [error,           setError]           = useState(null);
+    const [filter,          setFilter]          = useState("recent");
+    const [playerName,      setPlayerName]      = useState("");
     const [searchPerformed, setSearchPerformed] = useState(false);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchRecentMatches();
-    }, []);
+    // ------------------------------------------------------------------
+    // Data fetching
+    // ------------------------------------------------------------------
 
-    const fetchRecentMatches = async () => {
+    const fetchRecentMatches = useCallback(async () => {
         setLoading(true);
         setError(null);
         setFilter("recent");
@@ -31,11 +31,16 @@ function Matches() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const searchPlayerMatches = async () => {
-        if (!playerName.trim()) {
-            alert("Please enter a player name");
+    useEffect(() => {
+        fetchRecentMatches();
+    }, [fetchRecentMatches]);
+
+    const searchPlayerMatches = useCallback(async () => {
+        const trimmed = playerName.trim();
+        if (!trimmed) {
+            setError("Please enter a player name");
             return;
         }
 
@@ -45,56 +50,68 @@ function Matches() {
         setSearchPerformed(true);
 
         try {
-            const res = await API.get(`/player/${encodeURIComponent(playerName.trim())}/matches?limit=50`);
+            const res = await API.get(
+                `/player/${encodeURIComponent(trimmed)}/matches?limit=50`
+            );
             setMatches(res.data.matches);
         } catch (err) {
             console.error("Failed to fetch player matches:", err);
-            setError(`No matches found for player "${playerName}"`);
+            setError(`No matches found for player "${trimmed}"`);
             setMatches([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [playerName]);
+
+    // ------------------------------------------------------------------
+    // Formatters
+    // ------------------------------------------------------------------
 
     const formatDate = (timestamp) => {
+        if (!timestamp) return "Unknown date";
         const date = new Date(timestamp);
-        return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+        return isNaN(date.getTime())
+            ? "Invalid date"
+            : `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
     };
 
-    const getResultClass = (match, playerName) => {
+    const getResultClass = (match, name) => {
         if (match.winner === "draw") return "draw";
-        if (match.whiteName === playerName) {
-            return match.winner === "white" ? "win" : "loss";
-        }
-        if (match.blackName === playerName) {
-            return match.winner === "black" ? "win" : "loss";
-        }
+        if (match.whiteName === name) return match.winner === "white" ? "win" : "loss";
+        if (match.blackName === name) return match.winner === "black" ? "win" : "loss";
         return "";
     };
 
     const getResultText = (match) => {
         if (match.winner === "draw") return "Draw";
-        return `${match.winner === 'white' ? match.whiteName : match.blackName} wins`;
+        const winnerName = match.winner === "white" ? match.whiteName : match.blackName;
+        return `${winnerName} wins`;
     };
 
     const getReasonText = (reason) => {
         const reasons = {
-            checkmate: "Checkmate",
-            stalemate: "Stalemate",
-            resignation: "Resignation",
-            agreement: "Draw Agreed",
-            insufficient_material: "Insufficient Material",
-            repetition: "Threefold Repetition",
-            timeout: "Time Out"
+            checkmate:            "Checkmate",
+            stalemate:            "Stalemate",
+            resignation:          "Resignation",
+            agreement:            "Draw Agreed",
+            draw_agreed:          "Draw Agreed",
+            insufficient_material:"Insufficient Material",
+            repetition:           "Threefold Repetition",
+            seventy_five_moves:   "75-Move Rule",
+            timeout:              "Time Out",
         };
-        return reasons[reason] || reason;
+        return reasons[reason] ?? reason;
     };
+
+    // ------------------------------------------------------------------
+    // Render
+    // ------------------------------------------------------------------
 
     if (loading && matches.length === 0) {
         return (
             <div className="matches-container">
                 <div className="loading-spinner">
-                    <div className="spinner"></div>
+                    <div className="spinner" />
                     <p>Loading matches...</p>
                 </div>
             </div>
@@ -116,16 +133,21 @@ function Matches() {
                         type="text"
                         placeholder="Enter player name"
                         value={playerName}
-                        onChange={(e) => setPlayerName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && searchPlayerMatches()}
+                        onChange={(e) => {
+                            setPlayerName(e.target.value);
+                            setError(null);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && searchPlayerMatches()}
+                        disabled={loading}
                     />
-                    <button onClick={searchPlayerMatches} disabled={loading}>
+                    <button onClick={searchPlayerMatches} disabled={loading || !playerName.trim()}>
                         Search Player
                     </button>
                 </div>
+
                 <div className="filter-buttons">
                     <button
-                        className={`filter-btn ${filter === 'recent' ? 'active' : ''}`}
+                        className={`filter-btn ${filter === "recent" ? "active" : ""}`}
                         onClick={fetchRecentMatches}
                         disabled={loading}
                     >
@@ -135,14 +157,12 @@ function Matches() {
             </div>
 
             {error && (
-                <div className="error-message">
-                    {error}
-                </div>
+                <div className="error-message">{error}</div>
             )}
 
             {searchPerformed && !loading && matches.length === 0 && !error && (
                 <div className="no-matches">
-                    No matches found for "{playerName}"
+                    No matches found for &ldquo;{playerName}&rdquo;
                 </div>
             )}
 
@@ -162,7 +182,9 @@ function Matches() {
                                 <span className="player-name">{match.whiteName}</span>
                                 {match.winner === "white" && <span className="winner-badge">🏆</span>}
                             </div>
+
                             <div className="vs">vs</div>
+
                             <div className={`player black-player ${getResultClass(match, match.blackName)}`}>
                                 <span className="player-color">⚫</span>
                                 <span className="player-name">{match.blackName}</span>
@@ -197,3 +219,4 @@ function Matches() {
 }
 
 export default Matches;
+ 

@@ -1,0 +1,73 @@
+﻿version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chesslink-backend
+    restart: unless-stopped
+    # Port 8000 does not need to be exposed to the host in production —
+    # the frontend nginx proxy handles all traffic. Expose it only for
+    # local debugging by uncommenting the line below.
+    # ports:
+    #   - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ALLOWED_ORIGINS=http://localhost,http://localhost:80
+      - LOG_LEVEL=INFO
+      - WS_PING_INTERVAL=30
+      - WS_CONNECTION_TIMEOUT=60
+      - WS_MAX_MESSAGE_SIZE=1024
+      - USE_MEMORY_DB=false
+      - MONGODB_URI=mongodb://mongodb:27017/chesslink
+    networks:
+      - chesslink-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+        - VITE_WS_URL=ws://localhost/ws
+    container_name: chesslink-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - chesslink-network
+    depends_on:
+      - backend
+
+  mongodb:
+    image: mongo:6.0
+    container_name: chesslink-mongodb
+    restart: unless-stopped
+    # Uncomment below for local debugging only.
+    # ports:
+    #   - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=chesslink
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - chesslink-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongodb_data:
+
+networks:
+  chesslink-network:
+    driver: bridge

@@ -1,83 +1,101 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api/config";
 import "./Home.css";
 
+const generateDeviceId = () =>
+    "player_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+
 function Home() {
-    const [name, setName] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [name,        setName]        = useState("");
+    const [loading,     setLoading]     = useState(false);
     const [createdGame, setCreatedGame] = useState(null);
+    const [error,       setError]       = useState("");
     const navigate = useNavigate();
 
     useEffect(() => {
         const savedName = sessionStorage.getItem("playerName");
-        if (savedName) {
-            setName(savedName);
-        }
+        if (savedName) setName(savedName);
     }, []);
 
-    async function createGame() {
+    // ------------------------------------------------------------------
+    // Create game
+    // ------------------------------------------------------------------
+    const createGame = useCallback(async () => {
         setLoading(true);
+        setError("");
         try {
             const res = await API.get("/create-game");
             setCreatedGame(res.data.game_id);
         } catch (err) {
             console.error(err);
-            alert("Failed to create game");
+            setError("Failed to create game. Please try again.");
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
 
-    function copyLink() {
-        const link = `${window.location.origin}/join/${createdGame}`;
-        navigator.clipboard.writeText(link);
-        alert("Invite link copied!");
-    }
-
-    async function joinAsCreator() {
-        if (!name.trim()) {
-            alert("Enter your name to join");
+    // ------------------------------------------------------------------
+    // Join as creator
+    // ------------------------------------------------------------------
+    const joinAsCreator = useCallback(async () => {
+        const trimmed = name.trim();
+        if (!trimmed) {
+            setError("Please enter your name to join.");
             return;
         }
 
         setLoading(true);
+        setError("");
+
+        const deviceId = generateDeviceId();
+
         try {
-            const deviceId = 'player_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-
-            sessionStorage.setItem("playerId", deviceId);
-            sessionStorage.setItem("playerName", name.trim());
-
             const res = await API.post("/join-game", {
-                game_id: createdGame,
-                player_name: name.trim()
+                game_id:     createdGame,
+                player_name: trimmed,
             });
 
             if (res.data.error) {
-                sessionStorage.removeItem("playerId");
-                sessionStorage.removeItem("playerName");
-                alert(res.data.error);
+                setError(res.data.error);
                 return;
             }
+
+            sessionStorage.setItem("playerId",   deviceId);
+            sessionStorage.setItem("playerName", trimmed);
 
             navigate(`/game/${createdGame}`);
         } catch (err) {
             console.error(err);
-            sessionStorage.removeItem("playerId");
-            sessionStorage.removeItem("playerName");
-            alert("Failed to join game");
+            const detail = err.response?.data?.detail;
+            setError(detail || "Failed to join game. Please try again.");
         } finally {
             setLoading(false);
         }
-    }
-    
+    }, [name, createdGame, navigate]);
 
+    // ------------------------------------------------------------------
+    // Copy invite link
+    // ------------------------------------------------------------------
+    const copyLink = useCallback(() => {
+        const link = `${window.location.origin}/join/${createdGame}`;
+        navigator.clipboard.writeText(link).catch(() => {
+            // Fallback for browsers that block clipboard without HTTPS
+            prompt("Copy this invite link:", link);
+        });
+    }, [createdGame]);
+
+    // ------------------------------------------------------------------
+    // Render
+    // ------------------------------------------------------------------
     return (
         <div className="home-container">
             <h1 className="home-title">♜ ChessLink</h1>
 
             {!createdGame ? (
                 <div className="initial-section">
+                    {error && <div className="error-message">{error}</div>}
+
                     <button
                         className="create-btn"
                         onClick={createGame}
@@ -89,6 +107,7 @@ function Home() {
                     <button
                         className="matches-btn"
                         onClick={() => navigate("/matches")}
+                        disabled={loading}
                     >
                         View Recent Matches
                     </button>
@@ -125,14 +144,22 @@ function Home() {
 
                     <div className="join-creator-section">
                         <h3>Join as Creator</h3>
+
+                        {error && <div className="error-message">{error}</div>}
+
                         <input
                             type="text"
-                            className="name-input"
+                            className={`name-input ${error ? "error" : ""}`}
                             placeholder="Enter your name"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => {
+                                setName(e.target.value);
+                                setError("");
+                            }}
+                            onKeyDown={(e) => e.key === "Enter" && !loading && joinAsCreator()}
                             disabled={loading}
                         />
+
                         <button
                             className="join-creator-btn"
                             onClick={joinAsCreator}
@@ -147,6 +174,7 @@ function Home() {
                         onClick={() => {
                             setCreatedGame(null);
                             setName("");
+                            setError("");
                         }}
                         disabled={loading}
                     >

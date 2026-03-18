@@ -1,21 +1,21 @@
-﻿import { useState } from "react";
+﻿import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api/config";
 import "./JoinGame.css";
 
+const generateDeviceId = () =>
+    "player_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+
 function JoinGame() {
     const { gameId } = useParams();
-    const [name, setName] = useState("");
+    const [name,    setName]    = useState("");
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [error,   setError]   = useState("");
     const navigate = useNavigate();
 
-    const generateDeviceId = () => {
-        return 'player_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-    };
-
-    async function joinGame() {
-        if (!name.trim()) {
+    const joinGame = useCallback(async () => {
+        const trimmed = name.trim();
+        if (!trimmed) {
             setError("Please enter your name");
             return;
         }
@@ -24,28 +24,22 @@ function JoinGame() {
         setError("");
 
         try {
-            const deviceId = generateDeviceId();
-
             const res = await API.post("/join-game", {
-                game_id: gameId,
-                player_name: name.trim()
+                game_id:     gameId,
+                player_name: trimmed,
             });
 
             if (res.data.error) {
                 setError(res.data.error);
-                setLoading(false);
                 return;
             }
+            
+            const deviceId = generateDeviceId();
+            sessionStorage.setItem("playerId",   deviceId);
+            sessionStorage.setItem("playerName", trimmed);
+            sessionStorage.setItem("gameId",     gameId);
 
-            sessionStorage.setItem("playerId", deviceId);
-            sessionStorage.setItem("playerName", name.trim());
-            sessionStorage.setItem("gameId", gameId);
-
-            console.log("Player joined:", {
-                playerId: deviceId,
-                playerName: name.trim(),
-                gameId: gameId
-            });
+            console.log("Player joined:", { playerId: deviceId, playerName: trimmed, gameId });
 
             navigate(`/game/${gameId}`);
         } catch (err) {
@@ -54,14 +48,18 @@ function JoinGame() {
             if (err.response) {
                 setError(err.response.data?.detail || `Server error: ${err.response.status}`);
             } else if (err.request) {
-                setError("Cannot connect to server. Please check if backend is running.");
+                setError("Cannot connect to server. Please check if the backend is running.");
             } else {
                 setError("Failed to join game. Please try again.");
             }
         } finally {
             setLoading(false);
         }
-    }
+    }, [name, gameId, navigate]);
+
+    const handleKeyDown = useCallback((e) => {
+        if (e.key === "Enter" && !loading) joinGame();
+    }, [joinGame, loading]);
 
     return (
         <div className="join-game-container">
@@ -72,14 +70,12 @@ function JoinGame() {
             </p>
 
             {error && (
-                <div className="error-message">
-                    {error}
-                </div>
+                <div className="error-message">{error}</div>
             )}
 
             <div className="join-form">
                 <input
-                    className={`name-input ${error ? 'error' : ''}`}
+                    className={`name-input ${error ? "error" : ""}`}
                     type="text"
                     placeholder="Enter your name"
                     value={name}
@@ -87,11 +83,13 @@ function JoinGame() {
                         setName(e.target.value);
                         setError("");
                     }}
+                    onKeyDown={handleKeyDown}
                     disabled={loading}
+                    autoFocus
                 />
 
                 <button
-                    className={`join-button ${loading ? 'loading' : ''}`}
+                    className={`join-button ${loading ? "loading" : ""}`}
                     onClick={joinGame}
                     disabled={loading || !name.trim()}
                 >
@@ -101,7 +99,7 @@ function JoinGame() {
 
             {loading && (
                 <div className="loading-spinner">
-                    <div className="spinner"></div>
+                    <div className="spinner" />
                 </div>
             )}
         </div>
