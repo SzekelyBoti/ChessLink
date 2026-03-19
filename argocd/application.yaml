@@ -1,0 +1,55 @@
+﻿apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chesslink
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # ---------------------------------------------------------------------------
+  # Source — points ArgoCD at your Helm chart in Git
+  # ---------------------------------------------------------------------------
+  source:
+    repoURL: https://github.com/SzekelyBoti/ChessLink.git
+    targetRevision: main
+    path: helm/chesslink
+
+    helm:
+      valueFiles:
+        - values.yaml
+        - values.aws.yaml
+
+      parameters:
+        - name: backend.image.tag
+          value: "latest"
+        - name: frontend.image.tag
+          value: "latest"
+
+  # ---------------------------------------------------------------------------
+  # Destination — which cluster and namespace to deploy into
+  # ---------------------------------------------------------------------------
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chesslink
+
+  # ---------------------------------------------------------------------------
+  # Sync policy
+  # ---------------------------------------------------------------------------
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - ApplyOutOfSyncOnly=true
+
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

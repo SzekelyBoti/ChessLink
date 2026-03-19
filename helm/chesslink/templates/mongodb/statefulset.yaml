@@ -1,0 +1,49 @@
+﻿apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "chesslink.fullname" . }}-mongodb
+  namespace: chesslink
+  labels:
+    {{- include "chesslink.mongodb.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "chesslink.fullname" . }}-mongodb
+  selector:
+    matchLabels:
+      {{- include "chesslink.mongodb.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "chesslink.mongodb.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: mongodb
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+          ports:
+            - name: mongodb
+              containerPort: 27017
+              protocol: TCP
+          env:
+            - name: MONGO_INITDB_DATABASE
+              value: chesslink
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+          livenessProbe:
+            {{- toYaml .Values.mongodb.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.mongodb.resources | nindent 12 }}
+  {{- if .Values.mongodb.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.mongodb.persistence.storageClass }}
+        storageClassName: {{ .Values.mongodb.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mongodb.persistence.size }}
+  {{- end }}

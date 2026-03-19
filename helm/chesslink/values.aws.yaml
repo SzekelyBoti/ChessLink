@@ -1,0 +1,28 @@
+﻿backend:
+  image:
+    repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/backend"
+
+frontend:
+  image:
+    repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/frontend"
+
+mongodb:
+  persistence:
+    storageClass: gp3
+
+ingress:
+  className: alb
+  host: "your-domain.com"
+  tls:
+    enabled: true
+    secretName: chesslink-tls
+
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    
+autoscaling:
+  enabled: true
