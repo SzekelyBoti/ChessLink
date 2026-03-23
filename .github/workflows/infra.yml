@@ -1,0 +1,143 @@
+﻿name: Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to run"
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_WORKING_DIR: terraform/aws
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      # -----------------------------------------------------------------------
+      # Check for existing resources and import them into state if found.
+      # This prevents "already exists" errors on re-apply after partial destroy.
+      # -----------------------------------------------------------------------
+      - name: Import existing resources if present
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CLUSTER_NAME: chesslink
+          ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          GH_ORG: ${{ vars.GH_ORG }}
+        run: |
+          import_if_missing() {
+            local resource=$1
+            local id=$2
+            if terraform state show "$resource" &>/dev/null; then
+              echo "✅ $resource already in state, skipping import"
+            else
+              echo "⬇️  Importing $resource..."
+              terraform import \
+                -var="github_org=${GH_ORG}" \
+                -var="github_repo=${{ vars.GH_REPO }}" \
+                "$resource" "$id" || echo "⚠️  Could not import $resource (may not exist yet)"
+            fi
+          }
+
+          # ECR repositories
+          import_if_missing \
+            'aws_ecr_repository.services["backend"]' \
+            "${CLUSTER_NAME}/backend"
+
+          import_if_missing \
+            'aws_ecr_repository.services["frontend"]' \
+            "${CLUSTER_NAME}/frontend"
+
+          # IAM roles
+          import_if_missing \
+            "aws_iam_role.eks_cluster" \
+            "${CLUSTER_NAME}-eks-cluster-role"
+
+          import_if_missing \
+            "aws_iam_role.eks_node" \
+            "${CLUSTER_NAME}-eks-node-role"
+
+          import_if_missing \
+            "aws_iam_role.github_actions" \
+            "${CLUSTER_NAME}-github-actions-role"
+
+          import_if_missing \
+            "aws_iam_role.ebs_csi" \
+            "${CLUSTER_NAME}-ebs-csi-role"
+
+          # GitHub OIDC provider (only one per account)
+          import_if_missing \
+            "aws_iam_openid_connect_provider.github" \
+            "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+
+          # CloudWatch log group
+          import_if_missing \
+            "aws_cloudwatch_log_group.eks" \
+            "/aws/eks/${CLUSTER_NAME}/cluster"
+
+      - name: Terraform Plan
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan \
+            -var="github_org=${{ vars.GH_ORG }}" \
+            -var="github_repo=${{ vars.GH_REPO }}"
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var="github_org=${{ vars.GH_ORG }}" \
+            -var="github_repo=${{ vars.GH_REPO }}"
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform destroy -auto-approve \
+            -var="github_org=${{ vars.GH_ORG }}" \
+            -var="github_repo=${{ vars.GH_REPO }}"
+
+      - name: Trigger CD workflow after apply
+        if: github.event.inputs.action == 'apply'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'cd.yml',
+              ref: 'main'
+            })
+            console.log('CD workflow triggered successfully')

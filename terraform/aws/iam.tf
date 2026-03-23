@@ -84,14 +84,21 @@ resource "aws_iam_role_policy_attachment" "ebs_csi_policy" {
   role       = aws_iam_role.ebs_csi.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
+
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 
   client_id_list = ["sts.amazonaws.com"]
+
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
+
 resource "aws_iam_role" "github_actions" {
   name = "${var.cluster_name}-github-actions-role"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -112,6 +119,7 @@ resource "aws_iam_role" "github_actions" {
     }]
   })
 }
+
 resource "aws_iam_role_policy" "github_actions" {
   name = "${var.cluster_name}-github-actions-policy"
   role = aws_iam_role.github_actions.id
