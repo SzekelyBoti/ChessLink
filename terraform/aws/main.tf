@@ -16,8 +16,11 @@ terraform {
     }
   }
 
-  backend "local" {
-    path = "terraform.tfstate"
+  backend "s3" {
+    bucket = "chesslink-tfstate-029517664698"
+    key    = "aws/terraform.tfstate"
+    region = "eu-north-1"
+    encrypt = true
   }
 }
 

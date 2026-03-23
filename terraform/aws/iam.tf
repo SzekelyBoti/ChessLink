@@ -96,10 +96,6 @@ resource "aws_iam_openid_connect_provider" "github" {
 resource "aws_iam_role" "github_actions" {
   name = "${var.cluster_name}-github-actions-role"
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
