@@ -1,0 +1,117 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Test
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt --break-system-packages
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          # Placeholder — add pytest tests later
+          echo "No tests yet — skipping"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: |
+          # Placeholder — add vitest tests later
+          echo "No tests yet — skipping"
+
+  # ---------------------------------------------------------------------------
+  # Build and push images to ECR
+  # Only runs on push to main (not on PRs)
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # -----------------------------------------------------------------------
+      # Backend
+      # -----------------------------------------------------------------------
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/chesslink/backend:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/chesslink/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -----------------------------------------------------------------------
+      # Frontend
+      # -----------------------------------------------------------------------
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/chesslink/frontend:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/chesslink/frontend:latest
+          build-args: |
+            VITE_API_URL=/api
+            VITE_WS_URL=ws://${{ secrets.APP_HOST }}/ws
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

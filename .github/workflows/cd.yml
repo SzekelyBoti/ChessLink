@@ -1,0 +1,147 @@
+﻿name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Get image tag from CI run
+        id: meta
+        run: |
+          # Reconstruct the same SHA-based tag CI used
+          echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name chesslink
+      
+      # -----------------------------------------------------------------------
+      # Install ArgoCD if not already present
+      # -----------------------------------------------------------------------
+      - name: Install ArgoCD if not present
+        run: |
+          if ! kubectl get namespace argocd &>/dev/null; then
+            echo "Installing ArgoCD..."
+            kubectl create namespace argocd
+            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+            echo "ArgoCD installed"
+          else
+            echo "ArgoCD already installed, skipping"
+          fi
+      
+      # -----------------------------------------------------------------------
+      # Set a fixed ArgoCD admin password from GitHub secrets
+      # -----------------------------------------------------------------------
+      - name: Set ArgoCD admin password
+        run: |
+          # Install htpasswd
+          sudo apt-get install -y apache2-utils
+          
+          # Generate bcrypt hash of the password
+          BCRYPT_HASH=$(htpasswd -nbBC 10 "" ${{ secrets.ARGOCD_PASSWORD }} | tr -d ':\n' | sed 's/$2y/$2a/')
+          
+          # Patch the ArgoCD secret with the new password
+          kubectl -n argocd patch secret argocd-secret \
+            -p "{\"stringData\": {
+              \"admin.password\": \"${BCRYPT_HASH}\",
+              \"admin.passwordMtime\": \"$(date +%FT%T%Z)\"
+            }}"
+          
+          # Restart argocd-server to pick up the new password
+          kubectl rollout restart deployment argocd-server -n argocd
+          kubectl rollout status deployment argocd-server -n argocd --timeout=120s
+          
+          echo "ArgoCD admin password set successfully"
+      
+      # -----------------------------------------------------------------------
+      # Apply ArgoCD application manifest
+      # -----------------------------------------------------------------------
+      - name: Apply ArgoCD application
+        run: kubectl apply -f argocd/application.yaml
+      
+      # -----------------------------------------------------------------------
+      # Update image tags in values.aws.yaml and commit back to repo
+      # ArgoCD detects the commit and syncs automatically
+      # -----------------------------------------------------------------------
+      - name: Update image tags
+        run: |
+          TAG=${{ steps.meta.outputs.tag }}
+          
+          # Update backend image tag
+          sed -i "s|tag: .*|tag: \"${TAG}\"|" helm/chesslink/values.aws.yaml
+          
+          echo "Updated image tags to ${TAG}"
+          cat helm/chesslink/values.aws.yaml
+
+      - name: Commit and push updated image tags
+        run: |
+          TAG=${{ steps.meta.outputs.tag }}
+          
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add helm/chesslink/values.aws.yaml
+          
+          # Only commit if there are actual changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update image tags to ${TAG} [skip ci]"
+            git push
+          fi
+      
+      # -----------------------------------------------------------------------
+      # Wait for ArgoCD to sync
+      # -----------------------------------------------------------------------
+      - name: Wait for ArgoCD sync
+        run: |
+          echo "Waiting for ArgoCD to sync..."
+          sleep 30
+          
+          # Install ArgoCD CLI
+          curl -sSL -o /usr/local/bin/argocd \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
+          
+          # Port-forward ArgoCD in background
+          kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+          sleep 5
+          
+          # Login with the known password from secrets
+          argocd login localhost:8080 \
+            --username admin \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+          
+          # Wait for sync to complete
+          argocd app wait chesslink \
+            --sync \
+            --health \
+            --timeout 300
+          
+          echo "Deployment complete!"
+
+      - name: Print app status
+        run: kubectl get pods -n chesslink
