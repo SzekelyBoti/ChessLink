@@ -34,6 +34,9 @@ jobs:
         with:
           terraform_version: "1.7.0"
 
+      # -----------------------------------------------------------------------
+      # Create S3 state bucket if it doesn't exist
+      # -----------------------------------------------------------------------
       - name: Create S3 state bucket if not exists
         run: |
           if aws s3api head-bucket --bucket ${{ env.STATE_BUCKET }} 2>/dev/null; then
@@ -63,6 +66,9 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
+      # -----------------------------------------------------------------------
+      # Import existing resources to avoid "already exists" errors
+      # -----------------------------------------------------------------------
       - name: Import existing resources if present
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -117,6 +123,9 @@ jobs:
             -var="github_org=${{ vars.GH_ORG }}" \
             -var="github_repo=${{ vars.GH_REPO }}"
 
+      # -----------------------------------------------------------------------
+      # After apply — trigger CD to install ArgoCD and deploy the app
+      # -----------------------------------------------------------------------
       - name: Trigger CD workflow
         if: github.event.inputs.action == 'apply'
         uses: actions/github-script@v7
