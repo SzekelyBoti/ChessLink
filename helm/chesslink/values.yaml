@@ -114,7 +114,7 @@ mongodb:
     port: 27017
 
   persistence:
-    enabled: true
+    enabled: false
     size: 5Gi
     storageClass: ""
 
