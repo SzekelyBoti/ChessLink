@@ -47,20 +47,37 @@ jobs:
               --bucket ${{ env.STATE_BUCKET }} \
               --region ${{ env.AWS_REGION }} \
               --create-bucket-configuration LocationConstraint=${{ env.AWS_REGION }}
-
-            # Enable versioning so we can recover from bad state
             aws s3api put-bucket-versioning \
               --bucket ${{ env.STATE_BUCKET }} \
               --versioning-configuration Status=Enabled
-
-            # Block all public access
             aws s3api put-public-access-block \
               --bucket ${{ env.STATE_BUCKET }} \
               --public-access-block-configuration \
-                BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-
+              BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
             echo "✅ State bucket created"
           fi
+
+      # -----------------------------------------------------------------------
+      # Generate terraform.tfvars from GitHub Variables
+      # -----------------------------------------------------------------------
+      - name: Generate terraform.tfvars
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          cat > terraform.tfvars <<-TFVARS
+          aws_region           = "${{ vars.AWS_REGION }}"
+          cluster_name         = "chesslink"
+          availability_zones   = ["${{ vars.AZ_1 }}", "${{ vars.AZ_2 }}"]
+          private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+          public_subnet_cidrs  = ["10.0.101.0/24", "10.0.102.0/24"]
+          node_instance_type   = "t3.medium"
+          node_desired_count   = 2
+          node_min_count       = 1
+          node_max_count       = 4
+          github_org           = "${{ vars.GH_ORG }}"
+          github_repo          = "${{ vars.GH_REPO }}"
+          TFVARS
+          echo "Generated terraform.tfvars:"
+          cat terraform.tfvars
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -83,10 +100,7 @@ jobs:
               echo "✅ $resource already in state, skipping"
             else
               echo "⬇️  Importing $resource..."
-              terraform import \
-                -var="github_org=${{ vars.GH_ORG }}" \
-                -var="github_repo=${{ vars.GH_REPO }}" \
-                "$resource" "$id" || echo "⚠️  $resource not found in AWS, will be created"
+              terraform import "$resource" "$id" || echo "⚠️  $resource not found in AWS, will be created"
             fi
           }
 
@@ -102,26 +116,17 @@ jobs:
       - name: Terraform Plan
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          terraform plan \
-            -var="github_org=${{ vars.GH_ORG }}" \
-            -var="github_repo=${{ vars.GH_REPO }}"
+        run: terraform plan
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          terraform apply -auto-approve \
-            -var="github_org=${{ vars.GH_ORG }}" \
-            -var="github_repo=${{ vars.GH_REPO }}"
+        run: terraform apply -auto-approve
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          terraform destroy -auto-approve \
-            -var="github_org=${{ vars.GH_ORG }}" \
-            -var="github_repo=${{ vars.GH_REPO }}"
+        run: terraform destroy -auto-approve
 
       # -----------------------------------------------------------------------
       # After apply — trigger CD to install ArgoCD and deploy the app
