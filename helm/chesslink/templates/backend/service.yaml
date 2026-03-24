@@ -1,7 +1,7 @@
 ﻿apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chesslink.fullname" . }}-backend
+  name: backend
   namespace: chesslink
   labels:
     {{- include "chesslink.backend.labels" . | nindent 4 }}

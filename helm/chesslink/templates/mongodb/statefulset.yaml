@@ -27,9 +27,11 @@ spec:
           env:
             - name: MONGO_INITDB_DATABASE
               value: chesslink
+          { { - if .Values.mongodb.persistence.enabled } }
           volumeMounts:
             - name: mongodb-data
               mountPath: /data/db
+          { { - end } }
           livenessProbe:
             {{- toYaml .Values.mongodb.livenessProbe | nindent 12 }}
           resources:

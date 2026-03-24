@@ -132,7 +132,7 @@ mongodb:
 # Ingress
 # ---------------------------------------------------------------------------
 ingress:
-  enabled: true
+  enabled: false
   className: ""
   host: "localhost"
   tls:
