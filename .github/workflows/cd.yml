@@ -144,4 +144,4 @@ jobs:
           echo "Deployment complete!"
 
       - name: Print app status
-        run: kubectl get pods -n chesslink
+        run: kubectl get pods -n chesslink 
