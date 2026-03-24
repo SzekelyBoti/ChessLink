@@ -119,4 +119,4 @@ jobs:
             VITE_API_URL=/api
             VITE_WS_URL=ws://${{ secrets.APP_HOST }}/ws
           cache-from: type=gha
-          cache-to: type=gha,mode=max 
+          cache-to: type=gha,mode=max
