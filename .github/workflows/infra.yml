@@ -127,20 +127,3 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform destroy -auto-approve
-
-      # -----------------------------------------------------------------------
-      # After apply — trigger CD to install ArgoCD and deploy the app
-      # -----------------------------------------------------------------------
-      - name: Trigger CD workflow
-        if: github.event.inputs.action == 'apply'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GH_PAT }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'cd.yml',
-              ref: 'main'
-            })
-            console.log('CD workflow triggered')

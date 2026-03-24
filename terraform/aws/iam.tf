@@ -12,6 +12,20 @@ resource "aws_iam_role" "eks_cluster" {
     }]
   })
 }
+resource "aws_ecr_repository" "services" {
+  for_each = toset(["backend", "frontend"])
+
+  name = "chesslink/${each.value}"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "chesslink-${each.value}"
+    Environment = var.environment
+  }
+}
 
 resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster.name
