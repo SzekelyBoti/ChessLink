@@ -12,20 +12,6 @@ resource "aws_iam_role" "eks_cluster" {
     }]
   })
 }
-resource "aws_ecr_repository" "services" {
-  for_each = toset(["backend", "frontend"])
-
-  name = "chesslink/${each.value}"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name        = "chesslink-${each.value}"
-    Environment = var.environment
-  }
-}
 
 resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster.name
@@ -154,7 +140,8 @@ resource "aws_iam_role_policy" "github_actions" {
           "ecr:GetDownloadUrlForLayer",
         ]
         Resource = [
-          for repo in aws_ecr_repository.services : repo.arn
+          "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.cluster_name}/backend",
+          "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.cluster_name}/frontend"
         ]
       },
       {
