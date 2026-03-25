@@ -86,31 +86,14 @@ mongodb:
   replicaCount: 1
   image:
     repository: mongo
-    tag: "6.0"
+    tag: "6"
     pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
+  resources: {}
   service:
     type: ClusterIP
     port: 27017
   persistence:
     enabled: false
-    size: 5Gi
-    storageClass: ""
-  livenessProbe:
-    exec:
-      command:
-        - mongosh
-        - "--eval"
-        - "db.adminCommand('ping')"
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    failureThreshold: 3
 
 # ---------------------------------------------------------------------------
 # Ingress 
