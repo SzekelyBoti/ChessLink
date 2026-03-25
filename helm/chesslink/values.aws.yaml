@@ -6,10 +6,10 @@
 # Backend
 # ---------------------------------------------------------------------------
 backend:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/backend"
-    tag: "8f0aa66"
+    tag: "latest"
   resources:
     requests:
       cpu: 100m
@@ -50,10 +50,10 @@ backend:
 # Frontend
 # ---------------------------------------------------------------------------
 frontend:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/frontend"
-    tag: "8f0aa66"
+    tag: "latest"
   resources:
     requests:
       cpu: 50m
@@ -86,7 +86,7 @@ mongodb:
   replicaCount: 1
   image:
     repository: mongo
-    tag: "8f0aa66"
+    tag: "6.0"
     pullPolicy: IfNotPresent
   resources:
     requests:
