@@ -42,7 +42,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: frontend
+                name: chesslink-frontend
                 port:
                   name: http
   {{- end }}
