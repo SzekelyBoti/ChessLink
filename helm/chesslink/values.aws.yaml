@@ -9,7 +9,7 @@ backend:
   replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/backend"
-    tag: "latest"
+    tag: "32c026a"
   resources:
     requests:
       cpu: 100m
@@ -53,7 +53,7 @@ frontend:
   replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/frontend"
-    tag: "latest"
+    tag: "32c026a"
     buildArgs:
       VITE_API_URL: "http://localhost:8000/api"
       VITE_WS_URL: "ws://localhost:8000/ws"
@@ -89,7 +89,7 @@ mongodb:
   replicaCount: 1
   image:
     repository: mongo
-    tag: "6.0"
+    tag: "32c026a"
     pullPolicy: IfNotPresent
   resources:
     requests:
