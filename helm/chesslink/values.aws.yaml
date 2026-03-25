@@ -9,7 +9,7 @@ backend:
   replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/backend"
-    tag: "c696bce"
+    tag: "53af2bc"
   resources:
     requests:
       cpu: 100m
@@ -53,7 +53,7 @@ frontend:
   replicaCount: 1
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/frontend"
-    tag: "c696bce"
+    tag: "53af2bc"
   resources:
     requests:
       cpu: 50m
