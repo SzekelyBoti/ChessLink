@@ -54,9 +54,6 @@ frontend:
   image:
     repository: "029517664698.dkr.ecr.eu-north-1.amazonaws.com/chesslink/frontend"
     tag: "4db6bf5"
-    buildArgs:
-      VITE_API_URL: "http://localhost:8000/api"
-      VITE_WS_URL: "ws://localhost:8000/ws"
   resources:
     requests:
       cpu: 50m
