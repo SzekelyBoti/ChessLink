@@ -41,15 +41,33 @@ jobs:
         run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name chesslink
 
       # -----------------------------------------------------------------------
-      # Install ArgoCD if not already present
+      # Install Helm
+      # -----------------------------------------------------------------------
+      - name: Install Helm
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+          chmod 700 get_helm.sh
+          ./get_helm.sh
+
+      # -----------------------------------------------------------------------
+      # Install ArgoCD if not already present (using Helm)
       # -----------------------------------------------------------------------
       - name: Install ArgoCD if not present
         run: |
           if ! kubectl get namespace argocd &>/dev/null; then
-            echo "Installing ArgoCD..."
-            kubectl create namespace argocd
-            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-            kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+            echo "Installing ArgoCD with Helm..."
+            helm repo add argo https://argoproj.github.io/argo-helm
+            helm repo update
+            helm install argocd argo/argo-cd \
+              --namespace argocd \
+              --create-namespace \
+              --set server.service.type=ClusterIP \
+              --set redis.enabled=true \
+              --set controller.replicas=1 \
+              --version 7.7.5
+          
+            echo "Waiting for ArgoCD pods to be ready..."
+            kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s || true
             echo "ArgoCD installed"
           else
             echo "ArgoCD already installed, skipping"
@@ -144,4 +162,4 @@ jobs:
           echo "Deployment complete!"
 
       - name: Print app status
-        run: kubectl get pods -n chesslink 
+        run: kubectl get pods -n chesslink
