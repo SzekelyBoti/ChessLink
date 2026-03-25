@@ -119,4 +119,4 @@ jobs:
             VITE_API_URL=http://localhost:8000/api
             VITE_WS_URL=ws://localhost:8000/ws
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max 
