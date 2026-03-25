@@ -28,21 +28,21 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "chesslink.fullname" . }}-backend
+                name: backend
                 port:
                   name: http
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: {{ include "chesslink.fullname" . }}-backend
+                name: backend
                 port:
                   name: http
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "chesslink.fullname" . }}-frontend
+                name: frontend
                 port:
                   name: http
   {{- end }}

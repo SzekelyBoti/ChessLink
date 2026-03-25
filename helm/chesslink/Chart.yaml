@@ -1,6 +1,4 @@
-﻿icon: https://raw.githubusercontent.com/your-org/chesslink/main/frontend/public/vite.svg
-
-apiVersion: v2
+﻿apiVersion: v2
 name: chesslink
 description: Multiplayer Chess Game
 type: application
