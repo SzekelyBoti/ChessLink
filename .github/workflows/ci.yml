@@ -116,7 +116,7 @@ jobs:
                 ${{ env.ECR_REGISTRY }}/chesslink/frontend:${{ steps.meta.outputs.tag }}
                 ${{ env.ECR_REGISTRY }}/chesslink/frontend:latest
           build-args: |
-            VITE_API_URL=http://localhost:8000
-            VITE_WS_URL=ws://localhost:8000
+            VITE_API_URL=/api
+            VITE_WS_URL=ws://localhost/ws
           cache-from: type=gha
           cache-to: type=gha,mode=max 
