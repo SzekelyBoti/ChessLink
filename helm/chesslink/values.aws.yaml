@@ -80,7 +80,7 @@ frontend:
     failureThreshold: 3
 
 # ---------------------------------------------------------------------------
-# MongoDB - DISABLE PERSISTENCE FOR FIRST DEPLOYMENT
+# MongoDB
 # ---------------------------------------------------------------------------
 mongodb:
   replicaCount: 1
@@ -113,7 +113,7 @@ mongodb:
     failureThreshold: 3
 
 # ---------------------------------------------------------------------------
-# Ingress - DISABLE UNTIL YOU HAVE A DOMAIN
+# Ingress 
 # ---------------------------------------------------------------------------
 ingress:
   enabled: false

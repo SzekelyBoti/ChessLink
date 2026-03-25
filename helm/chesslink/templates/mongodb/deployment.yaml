@@ -1,13 +1,12 @@
 ﻿apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
-  name: {{ include "chesslink.fullname" . }}-mongodb
+  name: mongodb
   namespace: chesslink
   labels:
     {{- include "chesslink.mongodb.labels" . | nindent 4 }}
 spec:
   replicas: 1
-  serviceName: {{ include "chesslink.fullname" . }}-mongodb
   selector:
     matchLabels:
       {{- include "chesslink.mongodb.selectorLabels" . | nindent 6 }}
@@ -27,25 +26,7 @@ spec:
           env:
             - name: MONGO_INITDB_DATABASE
               value: chesslink
-          {{- if .Values.mongodb.persistence.enabled }}
-          volumeMounts:
-            - name: mongodb-data
-              mountPath: /data/db
-          {{- end }}
           livenessProbe:
             {{- toYaml .Values.mongodb.livenessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.mongodb.resources | nindent 12 }}
-  {{- if .Values.mongodb.persistence.enabled }}
-  volumeClaimTemplates:
-    - metadata:
-        name: mongodb-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        {{- if .Values.mongodb.persistence.storageClass }}
-        storageClassName: {{ .Values.mongodb.persistence.storageClass }}
-        {{- end }}
-        resources:
-          requests:
-            storage: {{ .Values.mongodb.persistence.size }}
-  {{- end }}
