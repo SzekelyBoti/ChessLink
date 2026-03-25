@@ -1,25 +1,23 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mongodb
-  namespace: chesslink
-  labels:
-    {{- include "chesslink.mongodb.labels" . | nindent 4 }}
+  name: {{ .Values.app.name }}-mongodb
+  namespace: {{ .Values.namespace.default }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "chesslink.mongodb.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.app.name }}-mongodb
   template:
     metadata:
       labels:
-        {{- include "chesslink.mongodb.selectorLabels" . | nindent 8 }}
+        app: {{ .Values.app.name }}-mongodb
     spec:
       containers:
-        - name: mongo
-          image: mongo:6
-          ports:
-            - containerPort: 27017
-          env:
-            - name: MONGO_INITDB_DATABASE
-              value: chesslink
+          - name: mongodb
+            image: mongo:6
+            ports:
+              - containerPort: {{ .Values.mongodb.port }}
+            env:
+              - name: MONGO_INITDB_DATABASE
+                value: {{ .Values.mongodb.database }}

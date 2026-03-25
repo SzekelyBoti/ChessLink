@@ -99,7 +99,7 @@ mongodb:
 # Ingress 
 # ---------------------------------------------------------------------------
 ingress:
-  enabled: true
+  enabled: false
   className: alb
   host: "*"
   tls:

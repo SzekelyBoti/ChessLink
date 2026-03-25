@@ -1,16 +1,12 @@
 ﻿apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chesslink.fullname" . }}-frontend
-  namespace: chesslink
-  labels:
-    {{- include "chesslink.frontend.labels" . | nindent 4 }}
+  name: {{ .Values.app.name }}-frontend
+  namespace: {{ .Values.namespace.default }}
 spec:
-  type: {{ .Values.frontend.service.type }}
+  type: {{ .Values.frontend.serviceType }}
   selector:
-    {{- include "chesslink.frontend.selectorLabels" . | nindent 4 }}
+    app: {{ .Values.app.name }}-frontend
   ports:
-    - name: http
-      port: {{ .Values.frontend.service.port }}
-      targetPort: http
-      protocol: TCP
+      - port: {{ .Values.frontend.port }}
+        targetPort: {{ .Values.frontend.port }}
