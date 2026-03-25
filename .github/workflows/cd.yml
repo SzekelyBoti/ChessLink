@@ -107,8 +107,11 @@ jobs:
         run: |
           TAG=${{ steps.meta.outputs.tag }}
 
-          # Update backend image tag
-          sed -i "s|tag: .*|tag: \"${TAG}\"|" helm/chesslink/values.aws.yaml
+          # Update only backend image tag
+          sed -i "/^backend:/,/^[a-z]/ s|tag: .*|tag: \"${TAG}\"|" helm/chesslink/values.aws.yaml
+
+          # Update only frontend image tag  
+          sed -i "/^frontend:/,/^[a-z]/ s|tag: .*|tag: \"${TAG}\"|" helm/chesslink/values.aws.yaml
 
           echo "Updated image tags to ${TAG}"
           cat helm/chesslink/values.aws.yaml
