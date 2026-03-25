@@ -89,7 +89,7 @@ mongodb:
   replicaCount: 1
   image:
     repository: mongo
-    tag: "5a6874a"
+    tag: "6.0"
     pullPolicy: IfNotPresent
   resources:
     requests:
