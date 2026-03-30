@@ -6,9 +6,6 @@ import "@bezalel6/react-chessground/dist/react-chessground.css";
 import API, { WS_URL } from "../../api/config";
 import "./Game.css";
 
-const storedPlayerId   = sessionStorage.getItem("playerId");
-const storedPlayerName = sessionStorage.getItem("playerName");
-
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 function Game() {
@@ -16,14 +13,17 @@ function Game() {
     const navigate   = useNavigate();
     const chessRef = useRef(new Chess());
 
+    const storedPlayerId   = sessionStorage.getItem("playerId");
+    const storedPlayerName = sessionStorage.getItem("playerName");
+
     const [fen,            setFen]            = useState(() => chessRef.current.fen());
-    const [playerColor,    setPlayerColor]    = useState(null);   // 'w' | 'b'
-    const [gameStatus,     setGameStatus]     = useState("connecting"); // connecting | waiting | playing | ended
+    const [playerColor,    setPlayerColor]    = useState(null);
+    const [gameStatus,     setGameStatus]     = useState("connecting");
     const [opponentName,   setOpponentName]   = useState(null);
     const [connectionStatus, setConnectionStatus] = useState("disconnected");
     const [drawOffered,    setDrawOffered]    = useState(false);
     const [drawOfferedBy,  setDrawOfferedBy]  = useState(null);
-    const [gameOverInfo,   setGameOverInfo]   = useState(null);   // { message, result }
+    const [gameOverInfo,   setGameOverInfo]   = useState(null);
 
     // Refs used inside callbacks (avoid stale closures)
     const wsRef                = useRef(null);
@@ -33,7 +33,7 @@ function Game() {
     const reconnectAttempts    = useRef(0);
     const playerColorRef       = useRef(null);
     const opponentNameRef      = useRef(null);
-    const gameSavedRef         = useRef(false);   // prevent double-save
+    const gameSavedRef         = useRef(false);
 
     // Keep refs in sync with state
     useEffect(() => { playerColorRef.current  = playerColor;  }, [playerColor]);
@@ -46,7 +46,7 @@ function Game() {
         if (gameSavedRef.current) return;
         gameSavedRef.current = true;
 
-        const myName       = storedPlayerName || "Unknown";
+        const myName       = sessionStorage.getItem("playerName") || "Unknown";
         const oppName      = opponentNameRef.current
             || sessionStorage.getItem("opponentName")
             || "Unknown";
@@ -99,12 +99,15 @@ function Game() {
 
                 if (message.players && message.players.length === 2) {
                     setGameStatus("playing");
-                    const myName  = storedPlayerName;
+                    const myName  = sessionStorage.getItem("playerName");
                     const opp     = message.players.find(p => p !== myName) || null;
                     setOpponentName(opp);
                     opponentNameRef.current = opp;
                     if (opp) sessionStorage.setItem("opponentName", opp);
+                } else {
+                    setGameStatus("waiting");
                 }
+
                 chess.reset();
                 (message.moves || []).forEach(moveData => {
                     try {
@@ -118,13 +121,18 @@ function Game() {
                     }
                 });
                 setFen(chess.fen());
+
+                setGameOverInfo(null);
+                setDrawOffered(false);
+                setDrawOfferedBy(null);
+                gameSavedRef.current = false;
                 break;
             }
 
             case "game_ready": {
                 setGameStatus("playing");
                 if (message.players) {
-                    const myName = storedPlayerName;
+                    const myName = sessionStorage.getItem("playerName");
                     const opp    = message.players.find(p => p !== myName) || null;
                     setOpponentName(opp);
                     opponentNameRef.current = opp;
@@ -154,16 +162,8 @@ function Game() {
                 break;
             }
 
-            case "reset": {
-                chess.reset();
-                setFen(chess.fen());
-                setGameStatus("playing");
-                setDrawOffered(false);
-                setDrawOfferedBy(null);
-                setGameOverInfo(null);
-                gameSavedRef.current = false;
+            case "reset":
                 break;
-            }
 
             case "player_disconnected": {
                 setGameStatus("waiting");
@@ -193,7 +193,7 @@ function Game() {
                     display = iWon ? "Checkmate — You win! 🏆" : "Checkmate — Opponent wins!";
 
                 } else if (reason === "resignation") {
-                    const iResigned = message.player === storedPlayerId;
+                    const iResigned = message.player === sessionStorage.getItem("playerId");
                     result  = iResigned ? "loss" : "win";
                     display = iResigned ? "You resigned." : "Opponent resigned — You win! 🏆";
 
@@ -223,6 +223,11 @@ function Game() {
                     reason,
                     moves: chess.history().length,
                 });
+                break;
+            }
+
+            case "ping": {
+                wsRef.current?.send(JSON.stringify({ type: "pong" }));
                 break;
             }
 
@@ -311,7 +316,7 @@ function Game() {
             connectionEstablished.current = false;
             wsRef.current?.close(1000, "Component unmounting");
         };
-    }, [connectWebSocket]);
+    }, [connectWebSocket, storedPlayerId]);
 
     // ------------------------------------------------------------------
     // Legal moves for Chessground
@@ -341,8 +346,8 @@ function Game() {
         }
 
         const chess = chessRef.current;
-
-        if (chess.turn() !== playerColor) {
+        const currentColor = playerColorRef.current;
+        if (chess.turn() !== currentColor) {
             alert("Not your turn!");
             return false;
         }
@@ -365,20 +370,12 @@ function Game() {
             console.error("Move error:", error);
             return false;
         }
-    }, [gameStatus, connectionStatus, playerColor]);
+    }, [gameStatus, connectionStatus]);
 
     // ------------------------------------------------------------------
     // Controls
     // ------------------------------------------------------------------
     const handleReset = useCallback(() => {
-        chessRef.current.reset();
-        setFen(chessRef.current.fen());
-        setGameStatus("playing");
-        setDrawOffered(false);
-        setDrawOfferedBy(null);
-        setGameOverInfo(null);
-        gameSavedRef.current = false;
-
         wsRef.current?.send(JSON.stringify({ type: "reset" }));
     }, []);
 
@@ -453,16 +450,6 @@ function Game() {
                     }}
                     turnColor={chessRef.current.turn() === "w" ? "white" : "black"}
                 />
-            </div>
-
-            <div className="reset-section">
-                <button
-                    className="reset-btn"
-                    onClick={handleReset}
-                    disabled={connectionStatus !== "connected"}
-                >
-                    New Game
-                </button>
             </div>
 
             {gameStatus === "playing" && !drawOffered && (

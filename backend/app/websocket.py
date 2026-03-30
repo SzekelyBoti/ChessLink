@@ -299,13 +299,12 @@ async def process_message(message: dict, game_id: str, player_id: str, game) -> 
         await handle_draw_response(message, game_id, player_id)
     elif msg_type == "reset":
         logger.info(f"Player {player_id} reset the board in game {game_id}")
-        await manager.broadcast(game_id, {"type": "reset"}, exclude_player=player_id)
+        await handle_reset(game_id, player_id, game)
     else:
         logger.warning(f"Unknown message type from {player_id}: {msg_type}")
 
 
 async def handle_move(message: dict, game_id: str, player_id: str, game) -> None:
-    """Handle a move message."""
     from_sq = message.get("from")
     to_sq = message.get("to")
     promotion = message.get("promotion", "")
@@ -315,8 +314,21 @@ async def handle_move(message: dict, game_id: str, player_id: str, game) -> None
         return
 
     uci_move = f"{from_sq}{to_sq}"
-    if promotion:
+
+    board = game.board
+    piece = board.piece_at(chess.parse_square(from_sq))
+    to_rank = int(to_sq[1])
+
+    is_promotion_move = (
+            piece and piece.piece_type == chess.PAWN and
+            ((piece.color == chess.WHITE and to_rank == 8) or
+             (piece.color == chess.BLACK and to_rank == 1))
+    )
+
+    if promotion and is_promotion_move:
         uci_move += promotion.lower()
+    elif promotion and not is_promotion_move:
+        logger.info(f"Ignoring promotion for non-promotion move: {uci_move}")
 
     move_data = {
         "from": from_sq,
@@ -407,6 +419,32 @@ async def handle_draw_offer(game_id: str, player_id: str, game) -> None:
         await manager.send_to_player(game_id, other_id, {
             "type": "draw_offer",
             "from": player_id
+        })
+
+
+async def handle_reset(game_id: str, player_id: str, game) -> None:
+    """Reset the board server-side and send a fresh game_state to both players."""
+    import chess as _chess
+
+    # 1. Reset server-side board and move history
+    game.board = _chess.Board()
+    game.moves = []
+    game.touch()
+    logger.info(f"Board reset for game {game_id}")
+
+    # 2. Send each player their own personalised game_state so colors are correct
+    player_names = game_manager.get_player_names(game_id)
+    for player in list(game.players):
+        pid  = player.get("id")
+        pname = player.get("name", "")
+        color = game_manager.get_player_color(game_id, pid) or "w"
+        await manager.send_to_player(game_id, pid, {
+            "type":       "game_state",
+            "players":    player_names,
+            "moves":      [],
+            "your_id":    pid,
+            "your_name":  pname,
+            "your_color": color,
         })
 
 
