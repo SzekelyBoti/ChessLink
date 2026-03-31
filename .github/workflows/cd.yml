@@ -48,6 +48,15 @@ jobs:
       # -----------------------------------------------------------------------
       # Deploy with Helm
       # -----------------------------------------------------------------------
+      - name: Reset stuck Helm release
+        run: |
+          STATUS=$(helm status chesslink -n chesslink -o json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          echo "Current Helm status: $STATUS"
+          if [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-rollback" ]; then
+            echo "Releasing stuck lock..."
+            helm rollback chesslink -n chesslink || helm uninstall chesslink -n chesslink || true
+          fi
+            
       - name: Deploy with Helm
         id: helm_deploy
         continue-on-error: true
@@ -71,6 +80,10 @@ jobs:
       - name: Diagnostics
         if: always()
         run: |
+          echo "=== Frontend logs ==="
+          kubectl logs -n chesslink -l app=chesslink-frontend --previous 2>/dev/null || \
+          kubectl logs -n chesslink -l app=chesslink-frontend 2>/dev/null || true
+          
           echo "=== Pods ==="
           kubectl get pods -n chesslink -o wide
 
