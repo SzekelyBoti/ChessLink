@@ -49,6 +49,8 @@ jobs:
       # Deploy with Helm
       # -----------------------------------------------------------------------
       - name: Deploy with Helm
+        id: helm_deploy
+        continue-on-error: true
         run: |
           TAG=${{ steps.meta.outputs.tag }}
 
@@ -63,5 +65,27 @@ jobs:
 
           echo "Deployed image tag: ${TAG}"
 
-      - name: Print app status
-        run: kubectl get pods -n chesslink
+      # -----------------------------------------------------------------------
+      # print diagnostics
+      # -----------------------------------------------------------------------
+      - name: Diagnostics
+        if: always()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n chesslink -o wide
+
+          echo "=== Events (last 30) ==="
+          kubectl get events -n chesslink --sort-by='.lastTimestamp' | tail -30
+
+          echo "=== Describe non-Running pods ==="
+          kubectl get pods -n chesslink --no-headers \
+            | grep -v " Running " \
+            | awk '{print $1}' \
+            | xargs -r -I{} kubectl describe pod {} -n chesslink
+
+          echo "=== Helm status ==="
+          helm status chesslink -n chesslink || true
+
+      - name: Fail if deploy failed
+        if: steps.helm_deploy.outcome == 'failure'
+        run: exit 1
