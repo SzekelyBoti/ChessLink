@@ -76,7 +76,7 @@ RUN printf 'server {\n\
 }' > /etc/nginx/conf.d/default.conf.template
 
 RUN printf '#!/bin/sh\n\
-envsubst "${BACKEND_HOST}" < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf\n\
+envsubst '${BACKEND_HOST}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 exec nginx -g "daemon off;"\n\
 ' > /docker-entrypoint-custom.sh && chmod +x /docker-entrypoint-custom.sh
 
