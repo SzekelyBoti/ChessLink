@@ -26,7 +26,7 @@ backend:
     WS_CONNECTION_TIMEOUT: "60"
     WS_MAX_MESSAGE_SIZE: "1024"
     USE_MEMORY_DB: "false"
-    MONGODB_URI: "mongodb://mongodb:27017/chesslink"
+    MONGODB_URI: "mongodb://chesslink-mongodb:27017/chesslink"
     ALLOWED_ORIGINS: "http://localhost,http://localhost:80"
   service:
     type: ClusterIP

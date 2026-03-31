@@ -1,17 +1,17 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: chesslink-frontend
   namespace: chesslink
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: frontend
+      app: chesslink-frontend
   template:
     metadata:
       labels:
-        app: frontend
+        app: chesslink-frontend
     spec:
       containers:
         - name: frontend
@@ -19,9 +19,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 80
-          env:
-            - name: BACKEND_HOST
-              value: "backend"
           resources:
             requests:
               cpu: 50m
@@ -47,12 +44,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend
+  name: chesslink-frontend
   namespace: chesslink
 spec:
   type: NodePort
   selector:
-    app: frontend
+    app: chesslink-frontend
   ports:
     - port: 80
       targetPort: 80

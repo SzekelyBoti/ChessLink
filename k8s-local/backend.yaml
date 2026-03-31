@@ -1,17 +1,17 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: chesslink-backend
   namespace: chesslink
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: chesslink-backend
   template:
     metadata:
       labels:
-        app: backend
+        app: chesslink-backend
     spec:
       containers:
         - name: backend
@@ -31,7 +31,7 @@ spec:
             - name: USE_MEMORY_DB
               value: "false"
             - name: MONGODB_URI
-              value: mongodb://mongodb:27017/chesslink
+              value: mongodb://chesslink-mongodb:27017/chesslink
             - name: ALLOWED_ORIGINS
               value: "http://localhost,http://localhost:80,http://localhost:3000"
             - name: WS_PING_INTERVAL
@@ -63,12 +63,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
+  name: chesslink-backend
   namespace: chesslink
 spec:
   type: ClusterIP
   selector:
-    app: backend
+    app: chesslink-backend
   ports:
     - port: 8000
       targetPort: 8000

@@ -94,12 +94,12 @@ case "$TARGET" in
     ;;
   all)
     log "Waiting for rollouts..."
-    kubectl rollout restart deployment/mongodb  -n "$NAMESPACE"
-    kubectl rollout restart deployment/backend  -n "$NAMESPACE"
-    kubectl rollout restart deployment/frontend -n "$NAMESPACE"
-    kubectl rollout status deployment/mongodb   -n "$NAMESPACE" --timeout=60s
-    kubectl rollout status deployment/backend   -n "$NAMESPACE" --timeout=60s
-    kubectl rollout status deployment/frontend  -n "$NAMESPACE" --timeout=60s
+    kubectl rollout restart deployment/chesslink-mongodb  -n "$NAMESPACE"
+    kubectl rollout restart deployment/chesslink-backend  -n "$NAMESPACE"
+    kubectl rollout restart deployment/chesslink-frontend -n "$NAMESPACE"
+    kubectl rollout status deployment/chesslink-mongodb   -n "$NAMESPACE" --timeout=60s
+    kubectl rollout status deployment/chesslink-backend   -n "$NAMESPACE" --timeout=60s
+    kubectl rollout status deployment/chesslink-frontend  -n "$NAMESPACE" --timeout=60s
     ;;
 esac
 

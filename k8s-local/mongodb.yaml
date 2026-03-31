@@ -1,17 +1,17 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mongodb
+  name: chesslink-mongodb
   namespace: chesslink
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mongodb
+      app: chesslink-mongodb
   template:
     metadata:
       labels:
-        app: mongodb
+        app: chesslink-mongodb
     spec:
       containers:
         - name: mongodb
@@ -32,12 +32,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mongodb
+  name: chesslink-mongodb
   namespace: chesslink
 spec:
   type: ClusterIP
   selector:
-    app: mongodb
+    app: chesslink-mongodb
   ports:
     - port: 27017
       targetPort: 27017
