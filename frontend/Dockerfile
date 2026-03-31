@@ -16,6 +16,7 @@ COPY . .
 
 RUN npm run build
 
+# ---------------------------------------------------------------------------
 
 FROM nginx:alpine
 
@@ -75,11 +76,9 @@ RUN printf 'server {\n\
     }\n\
 }' > /etc/nginx/conf.d/default.conf.template
 
-RUN printf '#!/bin/sh\n\
-envsubst '${BACKEND_HOST}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
-exec nginx -g "daemon off;"\n\
-' > /docker-entrypoint-custom.sh && chmod +x /docker-entrypoint-custom.sh
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
-CMD ["/docker-entrypoint-custom.sh"]
+CMD ["/docker-entrypoint.sh"]
