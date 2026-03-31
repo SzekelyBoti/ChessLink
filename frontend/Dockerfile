@@ -16,9 +16,10 @@ COPY . .
 
 RUN npm run build
 
-# ---------------------------------------------------------------------------
 
 FROM nginx:alpine
+
+RUN apk add --no-cache gettext
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
@@ -43,7 +44,7 @@ RUN printf 'server {\n\
     }\n\
 \n\
     location /api/ {\n\
-        proxy_pass http://backend:8000/;\n\
+        proxy_pass http://${BACKEND_HOST}:8000/;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
@@ -54,7 +55,7 @@ RUN printf 'server {\n\
     }\n\
 \n\
     location /ws/ {\n\
-        proxy_pass http://backend:8000/;\n\
+        proxy_pass http://${BACKEND_HOST}:8000/;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Upgrade $http_upgrade;\n\
         proxy_set_header Connection "upgrade";\n\
@@ -72,8 +73,13 @@ RUN printf 'server {\n\
     location = /50x.html {\n\
         root /usr/share/nginx/html;\n\
     }\n\
-}' > /etc/nginx/conf.d/default.conf
+}' > /etc/nginx/conf.d/default.conf.template
+
+RUN printf '#!/bin/sh\n\
+envsubst "${BACKEND_HOST}" < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf\n\
+exec nginx -g "daemon off;"\n\
+' > /docker-entrypoint-custom.sh && chmod +x /docker-entrypoint-custom.sh
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/docker-entrypoint-custom.sh"]

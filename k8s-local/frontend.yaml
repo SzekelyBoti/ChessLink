@@ -19,6 +19,9 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 80
+          env:
+            - name: BACKEND_HOST
+              value: "backend"
           resources:
             requests:
               cpu: 50m

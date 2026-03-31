@@ -62,7 +62,7 @@ frontend:
       cpu: 200m
       memory: 128Mi
   service:
-    type: ClusterIP
+    type: LoadBalancer
     port: 80
   readinessProbe:
     httpGet:
