@@ -79,10 +79,14 @@ function Home() {
     // ------------------------------------------------------------------
     const copyLink = useCallback(() => {
         const link = `${window.location.origin}/join/${createdGame}`;
-        navigator.clipboard.writeText(link).catch(() => {
-            // Fallback for browsers that block clipboard without HTTPS
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).catch(() => {
+                prompt("Copy this invite link:", link);
+            });
+        } else {
             prompt("Copy this invite link:", link);
-        });
+        }
     }, [createdGame]);
 
     // ------------------------------------------------------------------

@@ -1,0 +1,5 @@
+project_id   = "project-92bb6bf3-4468-4f91-830"
+region       = "europe-north1"
+cluster_name = "chesslink"
+github_org   = "SzekelyBoti"
+github_repo  = "ChessLink"
