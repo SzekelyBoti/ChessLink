@@ -42,19 +42,8 @@ jobs:
       # -----------------------------------------------------------------------
       # Create GCS state bucket if it doesn't exist
       # -----------------------------------------------------------------------
-      - name: Create GCS state bucket if not exists
-        run: |
-          BUCKET="chesslink-tfstate"
-          if gcloud storage buckets describe gs://${BUCKET} &>/dev/null; then
-            echo "✅ State bucket already exists"
-          else
-            echo "Creating state bucket..."
-            gcloud storage buckets create gs://${BUCKET} \
-              --project=${{ vars.GCP_PROJECT_ID }} \
-              --location=europe-north1
-            gcloud storage buckets update gs://${BUCKET} --versioning
-            echo "✅ Bucket created"
-          fi
+      - name: Verify state bucket exists
+        run: gcloud storage buckets describe gs://chesslink-tfstate --format="value(name)"
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
