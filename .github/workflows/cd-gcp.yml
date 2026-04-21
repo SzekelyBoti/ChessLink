@@ -1,0 +1,107 @@
+﻿name: CD (GCP)
+
+on:
+  workflow_run:
+    workflows: [CI (GCP)]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GCP_REGION: europe-north1
+  CLUSTER_NAME: chesslink
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.GCP_REGION }}
+
+      - name: Install Helm
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+          chmod 700 get_helm.sh
+          ./get_helm.sh
+
+      # -----------------------------------------------------------------------
+      # Reset stuck Helm release if needed
+      # -----------------------------------------------------------------------
+      - name: Reset stuck Helm release
+        run: |
+          STATUS=$(helm status chesslink -n chesslink -o json 2>/dev/null | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          echo "Current Helm status: $STATUS"
+          if [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-rollback" ]; then
+            echo "Releasing stuck lock..."
+            helm rollback chesslink -n chesslink || helm uninstall chesslink -n chesslink || true
+          fi
+
+      # -----------------------------------------------------------------------
+      # Deploy with Helm
+      # -----------------------------------------------------------------------
+      - name: Deploy with Helm
+        id: helm_deploy
+        continue-on-error: true
+        run: |
+          TAG=${{ steps.meta.outputs.tag }}
+
+          helm upgrade --install chesslink helm/chesslink \
+            --namespace chesslink \
+            --create-namespace \
+            --values helm/chesslink/values.gcp.yaml \
+            --set backend.image.tag="${TAG}" \
+            --set frontend.image.tag="${TAG}" \
+            --wait \
+            --timeout 5m
+
+          echo "Deployed image tag: ${TAG}"
+
+      # -----------------------------------------------------------------------
+      # Diagnostics — always runs so we can see what happened
+      # -----------------------------------------------------------------------
+      - name: Diagnostics
+        if: always()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n chesslink -o wide
+
+          echo "=== Frontend logs ==="
+          kubectl logs -n chesslink -l app=chesslink-frontend --previous 2>/dev/null || \
+          kubectl logs -n chesslink -l app=chesslink-frontend 2>/dev/null || true
+
+          echo "=== Backend logs ==="
+          kubectl logs -n chesslink -l app=chesslink-backend --previous 2>/dev/null || \
+          kubectl logs -n chesslink -l app=chesslink-backend 2>/dev/null || true
+
+          echo "=== Events (last 20) ==="
+          kubectl get events -n chesslink --sort-by='.lastTimestamp' | tail -20
+
+          echo "=== Helm status ==="
+          helm status chesslink -n chesslink || true
+
+      - name: Fail if deploy failed
+        if: steps.helm_deploy.outcome == 'failure'
+        run: exit 1

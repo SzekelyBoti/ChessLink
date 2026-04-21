@@ -1,0 +1,108 @@
+﻿global:
+  environment: production
+  imagePullPolicy: Always
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+backend:
+  replicaCount: 1
+  image:
+    repository: "europe-north1-docker.pkg.dev/project-92bb6bf3-4468-4f91-830/chesslink/backend"
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    ENVIRONMENT: production
+    HOST: "0.0.0.0"
+    PORT: "8000"
+    LOG_LEVEL: INFO
+    WS_PING_INTERVAL: "30"
+    WS_CONNECTION_TIMEOUT: "60"
+    WS_MAX_MESSAGE_SIZE: "1024"
+    USE_MEMORY_DB: "false"
+    MONGODB_URI: "mongodb://chesslink-mongodb:27017/chesslink"
+    ALLOWED_ORIGINS: "http://localhost,http://localhost:80"
+  service:
+    type: ClusterIP
+    port: 8000
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+frontend:
+  replicaCount: 1
+  image:
+    repository: "europe-north1-docker.pkg.dev/project-92bb6bf3-4468-4f91-830/chesslink/frontend"
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  service:
+    type: LoadBalancer
+    port: 80
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# MongoDB
+# ---------------------------------------------------------------------------
+mongodb:
+  replicaCount: 1
+  image:
+    repository: mongo
+    tag: "6"
+    pullPolicy: IfNotPresent
+  resources: {}
+  service:
+    type: ClusterIP
+    port: 27017
+  persistence:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# Ingress — disabled, using LoadBalancer service instead
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
