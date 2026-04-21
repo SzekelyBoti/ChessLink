@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.7.0"
+  required_version = ">= 1.5.0"
 
   required_providers {
     google = {
@@ -31,7 +31,6 @@ resource "google_artifact_registry_repository" "chesslink" {
 
 # ---------------------------------------------------------------------------
 # GKE Autopilot cluster
-# Autopilot manages nodes automatically — you only pay for pod resources
 # ---------------------------------------------------------------------------
 resource "google_container_cluster" "chesslink" {
   name     = var.cluster_name
@@ -63,28 +62,24 @@ resource "google_service_account" "github_actions" {
   description  = "Used by GitHub Actions to deploy to GKE and push to Artifact Registry"
 }
 
-resource "google_artifact_registry_repository_iam_member" "github_actions_push" {
-  location   = google_artifact_registry_repository.chesslink.location
-  repository = google_artifact_registry_repository.chesslink.name
-  role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
-resource "google_project_iam_member" "github_actions_gke" {
+resource "google_project_iam_member" "github_actions_owner" {
   project = var.project_id
-  role    = "roles/container.developer"
+  role    = "roles/owner"
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
 
-resource "google_project_iam_member" "github_actions_storage" {
+resource "google_project_iam_member" "compute_artifactregistry_reader" {
   project = var.project_id
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${data.google_compute_default_service_account.default.email}"
+}
+
+data "google_compute_default_service_account" "default" {
+  project = var.project_id
 }
 
 # ---------------------------------------------------------------------------
 # Workload Identity Federation
-# Lets GitHub Actions authenticate as the SA without storing a key
 # ---------------------------------------------------------------------------
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = "github-pool"
@@ -116,7 +111,7 @@ resource "google_service_account_iam_member" "github_actions_wif" {
 }
 
 # ---------------------------------------------------------------------------
-# Outputs — needed for GitHub Actions secrets
+# Outputs
 # ---------------------------------------------------------------------------
 output "workload_identity_provider" {
   description = "Value for GCP_WORKLOAD_IDENTITY_PROVIDER GitHub secret"
@@ -135,14 +130,4 @@ output "artifact_registry_url" {
 
 output "cluster_name" {
   value = google_container_cluster.chesslink.name
-}
-
-resource "google_project_iam_member" "compute_artifactregistry_reader" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${data.google_compute_default_service_account.default.email}"
-}
-
-data "google_compute_default_service_account" "default" {
-  project = var.project_id
 }
