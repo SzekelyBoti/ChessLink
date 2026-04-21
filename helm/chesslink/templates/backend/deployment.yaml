@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.app.name }}-backend
@@ -14,16 +14,16 @@ spec:
         app: {{ .Values.app.name }}-backend
     spec:
       containers:
-          - name: backend
-            image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
-            ports:
-              - containerPort: {{ .Values.backend.port }}
-            env:
-              - name: PORT
-                value: "{{ .Values.backend.port }}"
-              - name: MONGODB_URI
-                value: "mongodb://{{ .Values.app.name }}-mongodb:{{ .Values.mongodb.port }}/{{ .Values.mongodb.database }}"
-              { { - range $key, $val := .Values.backend.env } }
-              - name: { { $key } }
-                value: { { $val | quote } }
-              { { - end } }
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.backend.port }}
+          env:
+            - name: PORT
+              value: "{{ .Values.backend.port }}"
+            - name: MONGODB_URI
+              value: "mongodb://{{ .Values.app.name }}-mongodb:{{ .Values.mongodb.port }}/{{ .Values.mongodb.database }}"
+            {{- range $key, $val := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
