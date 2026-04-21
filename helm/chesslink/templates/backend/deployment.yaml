@@ -21,9 +21,9 @@ spec:
             env:
               - name: PORT
                 value: "{{ .Values.backend.port }}"
-              - name: ENVIRONMENT
-                value: "production"
               - name: MONGODB_URI
                 value: "mongodb://{{ .Values.app.name }}-mongodb:{{ .Values.mongodb.port }}/{{ .Values.mongodb.database }}"
-              - name: ALLOWED_ORIGINS
-                value: "http://localhost,http://localhost:80"
+              { { - range $key, $val := .Values.backend.env } }
+              - name: { { $key } }
+                value: { { $val | quote } }
+              { { - end } }

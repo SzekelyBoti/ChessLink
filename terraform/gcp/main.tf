@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.7.0"
 
   required_providers {
     google = {
@@ -129,4 +129,14 @@ output "artifact_registry_url" {
 
 output "cluster_name" {
   value = google_container_cluster.chesslink.name
+}
+
+resource "google_project_iam_member" "compute_artifactregistry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${data.google_compute_default_service_account.default.email}"
+}
+
+data "google_compute_default_service_account" "default" {
+  project = var.project_id
 }
