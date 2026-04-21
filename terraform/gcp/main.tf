@@ -76,6 +76,12 @@ resource "google_project_iam_member" "github_actions_gke" {
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
 
+resource "google_project_iam_member" "github_actions_storage" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
 # ---------------------------------------------------------------------------
 # Workload Identity Federation
 # Lets GitHub Actions authenticate as the SA without storing a key
